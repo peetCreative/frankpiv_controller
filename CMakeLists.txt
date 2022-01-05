@@ -49,11 +49,11 @@ catkin_package(
         DEPENDS Franka
 )
 
-add_library(pivot_controller
+add_library(frankpiv_controller
         src/pivot_controller.cpp
         )
 
-add_dependencies(pivot_controller
+add_dependencies(frankpiv_controller
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
         ${catkin_EXPORTED_TARGETS}
         pivot_control_messages_ros_generate_messages_cpp
@@ -61,23 +61,23 @@ add_dependencies(pivot_controller
         ${PROJECT_NAME}_gencfg
         )
 
-target_link_libraries(pivot_controller PUBLIC
+target_link_libraries(frankpiv_controller PUBLIC
         ${Franka_LIBRARIES}
         ${catkin_LIBRARIES}
         )
 
-target_include_directories(pivot_controller SYSTEM PUBLIC
+target_include_directories(frankpiv_controller SYSTEM PUBLIC
         ${Franka_INCLUDE_DIRS}
         ${EIGEN3_INCLUDE_DIRS}
         ${catkin_INCLUDE_DIRS}
         )
-target_include_directories(pivot_controller PUBLIC
+target_include_directories(frankpiv_controller PUBLIC
         include
         )
 
 
 ## Installation
-install(TARGETS pivot_controller
+install(TARGETS frankpiv_controller
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -109,10 +109,10 @@ if(CLANG_TOOLS)
             ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h
             ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
             )
-    add_format_target(pivot_controller FILES ${SOURCES} ${HEADERS})
-    add_tidy_target(pivot_controller
+    add_format_target(frankpiv_controller FILES ${SOURCES} ${HEADERS})
+    add_tidy_target(frankpiv_controller
             FILES ${SOURCES}
-            DEPENDS pivot_controller
+            DEPENDS frankpiv_controller
             )
 endif()
 

@@ -1,4 +1,4 @@
-<library path="lib/libfranka_example_controllers">
+<library path="lib/libfrankpiv_controller">
     <class name="frankpiv_controller/PivotController" type="frankpiv_controller::PivotController" base_class_type="controller_interface::ControllerBase">
         <description>
             A pivot controller that renders a spring damper system in cartesian space.
