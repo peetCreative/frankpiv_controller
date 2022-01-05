@@ -21,11 +21,12 @@
 #include <franka_hw/franka_model_interface.h>
 #include <franka_hw/franka_state_interface.h>
 #include <pivot_control_messages_ros/PivotTrajectory.h>
+#include <pivot_control_messages_ros/PivotPose.h>
 
 namespace frankpiv_controller {
-  struct PivotPose{
+  struct TargetPose{
     Eigen::Vector3d position;
-    double roll;
+    Eigen::Quaterniond orientation;
   };
 
   class PivotController : public controller_interface::MultiInterfaceController<
@@ -53,6 +54,7 @@ namespace frankpiv_controller {
     double nullspace_damping_{0.0};
     double nullspace_damping_target_{0.0};
     const double delta_tau_max_{1.0};
+    const double target_error_tolerance_{10e-4};
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_;
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_target_;
     Eigen::Matrix<double, 6, 6> cartesian_damping_;
@@ -63,10 +65,8 @@ namespace frankpiv_controller {
     // Protected by mutex the above mutex
     Eigen::Vector3d pivot_position_;
     Eigen::Vector3d position_d_;
-    Eigen::Vector3d position_d_target_;
     Eigen::Quaterniond orientation_d_;
-    Eigen::Quaterniond orientation_d_target_;
-    std::vector<PivotPose> pivot_positions_queue_;
+    std::vector<TargetPose> target_pose_queue_;
 
     // Dynamic reconfigure
     std::unique_ptr<dynamic_reconfigure::Server<franka_example_controllers::compliance_paramConfig>>
