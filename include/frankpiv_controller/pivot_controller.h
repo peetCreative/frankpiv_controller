@@ -22,6 +22,7 @@
 #include <franka_hw/franka_state_interface.h>
 #include <franka_msgs/SetEEFrame.h>
 #include <pivot_control_messages_ros/PivotTrajectory.h>
+#include <pivot_control_messages_ros/PivotPose.h>
 
 namespace frankpiv_controller {
   typedef Eigen::Vector4d TipPosePivoting;
@@ -53,6 +54,8 @@ namespace frankpiv_controller {
     const double delta_tau_max_{1.0};
     // max error in m
     const double pivot_error_max_{0.001};
+    // threshold in m
+    const double target_error_tolerance_{10e-4};
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_;
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_target_;
     Eigen::Matrix<double, 6, 6> cartesian_damping_;

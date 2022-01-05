@@ -71,6 +71,7 @@ namespace frankpiv_controller {
     std::vector<double> cartesian_stiffness_vector;
     std::vector<double> cartesian_damping_vector;
 
+    tip_pose_queue_ = {};
     sub_pivot_trajectory_ = node_handle.subscribe(
         "pivot_trajectory", 20, &PivotController::toolTipPivotControlCallback, this,
         ros::TransportHints().reliable().tcpNoDelay());
@@ -199,7 +200,6 @@ namespace frankpiv_controller {
     dynamic_server_compliance_param_->setCallback(
         boost::bind(&PivotController::complianceParamCallback, this, _1, _2));
 
-
     cartesian_stiffness_.setZero();
     cartesian_damping_.setZero();
 
@@ -249,6 +249,8 @@ namespace frankpiv_controller {
     // this means the tooltip is exactly at the pivot point
     // TODO: make parameter initial insertion depth
     // TODO: the pivot_position_d_ is at the point the current and we are moving slowly towards it
+    // TODO: look if tipPoseQueue is not empty and set first element
+//    tip_pose_queue_.push_back({initial_transform.translation())});
     pivot_position_d_ = initial_transform.translation();
     pivot_position_d_target_ = initial_transform.translation();
 
@@ -266,8 +268,6 @@ namespace frankpiv_controller {
     tip_pose_d_target_ << tip_pose_d_;
     position_d_ = initial_transform.translation();
     orientation_d_ = calcPivotOrientation(pivot_position_d_, tip_pose_d_);
-
-    tip_pose_queue_ = {};
 
     // set nullspace equilibrium configuration to initial q
     q_d_nullspace_ = q_initial;
@@ -295,19 +295,38 @@ namespace frankpiv_controller {
     Eigen::Quaterniond orientation(transform.linear());
 
     // compute error to desired pose
-    // position error
     Eigen::Matrix<double, 6, 1> error;
-    error.head(3) << position - position_d_;
 
-    // orientation error
-    if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
-      orientation.coeffs() << -orientation.coeffs();
+    auto compute_error = [&] (){
+        // position error
+        error.head(3) << position - position_d_;
+
+        // orientation error
+        if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
+          orientation.coeffs() << -orientation.coeffs();
+        }
+        // "difference" quaternion
+        Eigen::Quaterniond error_quaternion(orientation.inverse() * orientation_d_);
+        error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
+        // Transform to base frame
+        error.tail(3) << -transform.linear() * error.tail(3);
+    };
+
+    compute_error();
+    // TODO: when is the target position considered reached? Only when error == 0? Or consider joint velocities?
+    bool reached_target = true;
+    for (size_t i = 0; i < 7; i++) {
+      if (error[i] < -target_error_tolerance_ || error[i] > target_error_tolerance_) {
+        reached_target = false;
+        break;
+      }
     }
-    // "difference" quaternion
-    Eigen::Quaterniond error_quaternion(orientation.inverse() * orientation_d_);
-    error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
-    // Transform to base frame
-    error.tail(3) << -transform.linear() * error.tail(3);
+    if (reached_target && tip_pose_queue_.size() > 1) {
+      tip_pose_queue_.erase(tip_pose_queue_.begin());
+      tip_pose_d_target_ = tip_pose_queue_.front();
+      compute_error();
+    }
+
 
     // compute control
     // allocate variables
