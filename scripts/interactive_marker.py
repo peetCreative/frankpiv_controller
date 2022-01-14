@@ -61,20 +61,20 @@ def wait_for_initial_pose():
 
 
 if __name__ == "__main__":
-    rospy.init_node("equilibrium_pose_node")
+    rospy.init_node("pivot_trajectory_node")
     listener = tf.TransformListener()
     link_name = rospy.get_param("~link_name")
 
     wait_for_initial_pose()
 
     pose_pub = rospy.Publisher(
-        "equilibrium_pose", PoseStamped, queue_size=10)
-    server = InteractiveMarkerServer("equilibrium_pose_marker")
+        "pivot_trajectory", PoseStamped, queue_size=10)
+    server = InteractiveMarkerServer("pivot_trajectory_marker")
     int_marker = InteractiveMarker()
     int_marker.header.frame_id = link_name
     int_marker.scale = 0.3
-    int_marker.name = "equilibrium_pose"
-    int_marker.description = ("Equilibrium Pose\nBE CAREFUL! "
+    int_marker.name = "pivot_trajectory"
+    int_marker.description = ("Pivot Trajectory\nBE CAREFUL! "
                               "If you move the \nequilibrium "
                               "pose the robot will follow it\n"
                               "so be aware of potential collisions")
@@ -89,25 +89,8 @@ if __name__ == "__main__":
     control.orientation.x = 1
     control.orientation.y = 0
     control.orientation.z = 0
-    control.name = "rotate_x"
-    control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
-    int_marker.controls.append(control)
-
-    control = InteractiveMarkerControl()
-    control.orientation.w = 1
-    control.orientation.x = 1
-    control.orientation.y = 0
-    control.orientation.z = 0
     control.name = "move_x"
     control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
-    int_marker.controls.append(control)
-    control = InteractiveMarkerControl()
-    control.orientation.w = 1
-    control.orientation.x = 0
-    control.orientation.y = 1
-    control.orientation.z = 0
-    control.name = "rotate_y"
-    control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
     int_marker.controls.append(control)
     control = InteractiveMarkerControl()
     control.orientation.w = 1

@@ -7,11 +7,50 @@
 #include <memory>
 #include <vector>
 
+#include <franka_msgs/SetEEFrame.h>
 #include <controller_interface/controller_base.h>
 #include <franka/robot_state.h>
 #include <pluginlib/class_list_macros.h>
 
 namespace frankpiv_controller {
+  Eigen::Quaterniond calcPivotOrientation(
+      const Eigen::Vector3d &pivotPoint, const Eigen::Vector4d &tipPose) {
+    // we do a zxz rotation
+    // 1. around z for the roll
+    // 2. around x for the pitch
+    // 3. again around yaw for the yaw
+    Eigen::Vector3d pt = tipPose.head(3) - pivotPoint;
+    pt.normalize();
+    Eigen::Vector2d xy = {pt.x(), pt.y()};
+    xy.normalize();
+    double angle_z =  atan2(xy.y(), xy.x()) + M_PI_2;
+    if (angle_z > M_PI)
+      angle_z -= 2*M_PI;
+    Eigen::Vector2d zx = {pt.z(), Eigen::Vector2d(pt.x(), pt.y()).norm()};
+    zx.normalize();
+    double angle_x = atan2(zx.y() ,zx.x());
+    Eigen::AngleAxisd roll_mat {tipPose(3), Eigen::Vector3d::UnitZ()};
+    Eigen::AngleAxisd rot_x {angle_x, Eigen::Vector3d::UnitX()};
+    Eigen::AngleAxisd rot_z {angle_z, Eigen::Vector3d::UnitZ()};
+    return rot_z * rot_x * roll_mat;
+  }
+
+  double getRoll(Eigen::Matrix3d orientation) {
+    Eigen::Vector3d euler_angles = orientation.eulerAngles(2,0,2);
+    if (euler_angles[1] < 0) {
+      euler_angles = {euler_angles[0]- M_PI, -euler_angles[1], euler_angles[2]+ M_PI};
+    }
+    return euler_angles[2];
+  }
+
+  double getError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose) {
+    Eigen::ParametrizedLine<double, 3> line {
+        tip_pose.translation(),
+        tip_pose.rotation() * Eigen::Vector3d::UnitZ()};
+    // find the projection of the pivot_postion_ on to the current tool axis
+    // and take the distance between to the actual pivot_position_d_target_
+    return (pivot_point - line.projection(pivot_point)).norm();
+  }
 
   inline void pseudoInverse(const Eigen::MatrixXd& M_, Eigen::MatrixXd& M_pinv_, bool damped = true) {
     double lambda_ = damped ? 0.2 : 0.0;
@@ -33,7 +72,11 @@ namespace frankpiv_controller {
     std::vector<double> cartesian_damping_vector;
 
     sub_pivot_trajectory_ = node_handle.subscribe(
-        "pivot_pose", 20, &PivotController::toolTipPivotControlCallback, this,
+        "pivot_trajectory", 20, &PivotController::toolTipPivotControlCallback, this,
+        ros::TransportHints().reliable().tcpNoDelay());
+    //TODO: rather use /tf
+    sub_pivot_point_pose_ = node_handle.subscribe(
+        "pivot_pose", 20, &PivotController::pivotPointPoseCallback, this,
         ros::TransportHints().reliable().tcpNoDelay());
 
     std::string arm_id;
@@ -47,6 +90,34 @@ namespace frankpiv_controller {
           "PivotController: Invalid or no joint_names parameters provided, "
           "aborting controller init!");
       return false;
+    }
+    std::vector<double> ee_t_tt;
+    // Position:xyz and Orientation:xyzw
+    if (!node_handle.getParam("ee_t_tt", ee_t_tt) || ee_t_tt.size() != 7) {
+      ROS_ERROR(
+          "PivotController: Invalid or transform from flunsh to tooltip, "
+          "aborting controller init!");
+      return false;
+    }
+    Eigen::Matrix4d NE_T_Tip;
+    NE_T_Tip.setIdentity();
+    NE_T_Tip.topRightCorner<3,1>() << ee_t_tt[0], ee_t_tt[1], ee_t_tt[2];
+    NE_T_Tip.topLeftCorner<3,3>() << Eigen::Quaterniond(ee_t_tt[6], ee_t_tt[3], ee_t_tt[4], ee_t_tt[5]).toRotationMatrix();
+    ROS_INFO_STREAM_NAMED("PivotController", "NE_T_Tip" << NE_T_Tip);
+    franka_msgs::SetEEFrameRequest request;
+    franka_msgs::SetEEFrameResponse response;
+    // Call service to set EE
+    ros::ServiceClient set_EE_frame_client =
+        node_handle.serviceClient<franka_msgs::SetEEFrame>("/set_EE_frame");
+    // kinda didn't found a better solution..
+    for (int i = 0; i < 16; i++) {
+      request.NE_T_EE[i] = NE_T_Tip.data()[i];
+    }
+    set_EE_frame_client.call(request, response);
+
+    if(!response.success) {
+      ROS_ERROR_STREAM_NAMED(
+          "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << response.error);
     }
 
     auto* model_interface = robot_hw->get<franka_hw::FrankaModelInterface>();
@@ -107,7 +178,6 @@ namespace frankpiv_controller {
     dynamic_server_compliance_param_->setCallback(
         boost::bind(&PivotController::complianceParamCallback, this, _1, _2));
 
-    pivot_positions_queue_ = {};
 
     cartesian_stiffness_.setZero();
     cartesian_damping_.setZero();
@@ -154,17 +224,33 @@ namespace frankpiv_controller {
     Eigen::Affine3d initial_transform(Eigen::Matrix4d::Map(initial_state.O_T_EE.data()));
 
     // set point to current state
-    //TODO: make reasonable assumption
-    pivot_position_ = initial_transform.translation();
+    // we are starting with an offset of 0 to the pivot point
+    // this means the tooltip is exactly at the pivot point
+    // TODO: make parameter initial insertion depth
+    // TODO: the pivot_position_d_ is at the point the current and we are moving slowly towards it
+    pivot_position_d_ = initial_transform.translation();
+    pivot_position_d_target_ = initial_transform.translation();
+
+    tip_pose_d_.head<3>() << initial_transform.translation();
+    tip_pose_d_.tail<1>() << getRoll(initial_transform.rotation());
+
+    //TODO: there are instabilities if tooltip is at pivot_point
+    // because than each orientation is correct
+    double error = getError(pivot_position_d_target_, initial_transform);
+    if (error > pivot_error_max_) {
+      ROS_ERROR(
+          "PivotController: the distance from the pivot point is "
+          "bigger than the allowed threshold!");
+    }
+    tip_pose_d_target_ << tip_pose_d_;
     position_d_ = initial_transform.translation();
-    orientation_d_ = Eigen::Quaterniond(initial_transform.linear());
-    position_d_target_ = initial_transform.translation();
-    orientation_d_target_ = Eigen::Quaterniond(initial_transform.linear());
-    pivot_positions_queue_ = {};
+    orientation_d_ = calcPivotOrientation(pivot_position_d_, tip_pose_d_);
+
+    tip_pose_queue_ = {};
 
     // set nullspace equilibrium configuration to initial q
     q_d_nullspace_ = q_initial;
-    ROS_INFO_NAMED("PivotController", "Starting Impedance");
+    ROS_INFO_NAMED("PivotController", "Starting Pivot Controller using Impedance");
   }
 
   void PivotController::update(const ros::Time& /*time*/,
@@ -244,9 +330,17 @@ namespace frankpiv_controller {
         filter_params_ * nullspace_damping_target_ + (1.0 - filter_params_) * nullspace_damping_;
     std::lock_guard<std::mutex> position_d_target_mutex_lock(
         pivot_positions_queue__mutex_);
-    // Das Ziel wird langsam angepasst!!!
-    position_d_ = filter_params_ * position_d_target_ + (1.0 - filter_params_) * position_d_;
-    orientation_d_ = orientation_d_.slerp(filter_params_, orientation_d_target_);
+    //TODO:  Use ruckig here
+    // Problem simulation does not provide O_dP_EE_c (cart. speed) and O_ddP_EE_c (cart. acceleation)
+    pivot_position_d_ = filter_params_ * pivot_position_d_target_ + (1.0 - filter_params_) * pivot_position_d_;
+    double pivot_error = getError(pivot_position_d_, transform);
+    if (pivot_error > pivot_error_max_) {
+      tip_pose_d_target_ = tip_pose_d_;
+    }
+    // slowly approximate the correct pose, maybe test better filter_params_
+    tip_pose_d_ = filter_params_ * tip_pose_d_target_ + (1.0 - filter_params_) * tip_pose_d_;
+    position_d_ = tip_pose_d_.head(3);
+    orientation_d_ = calcPivotOrientation(pivot_position_d_, tip_pose_d_);
   }
 
   Eigen::Matrix<double, 7, 1> PivotController::saturateTorqueRate(
@@ -286,8 +380,7 @@ namespace frankpiv_controller {
     std::lock_guard<std::mutex> pivot_point_mutex_lock(
         pivot_positions_queue__mutex_);
     //TODO: check if we should do anything
-    pivot_position_ << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z;
-    //TODO: change trajectory
+    pivot_position_d_target_ << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z;
   }
 
   void PivotController::toolTipPivotControlCallback(
@@ -295,15 +388,14 @@ namespace frankpiv_controller {
     std::lock_guard<std::mutex> position_d_target_mutex_lock(
         pivot_positions_queue__mutex_);
     if (!msg.append)
-      pivot_positions_queue_.clear();
+      tip_pose_queue_.clear();
     for(auto pose : msg.poses)
     {
-      pivot_positions_queue_.push_back({{pose.x, pose.y, pose.z}, pose.roll});
+      tip_pose_queue_.push_back({pose.x, pose.y, pose.z, pose.roll});
     }
-    if (!pivot_positions_queue_.empty())
+    if (!tip_pose_queue_.empty())
     {
-      position_d_target_ << pivot_positions_queue_[0].position;
-//      TODO: calculate orientation from roll and pivot_position
+      tip_pose_d_target_ << tip_pose_queue_[0];
 //      Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
 //      orientation_d_target_.coeffs() << msg->pose.orientation.x, msg->pose.orientation.y,
 //          msg->pose.orientation.z, msg->pose.orientation.w;
@@ -311,7 +403,6 @@ namespace frankpiv_controller {
 //        orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
 //      }
     }
-    //TODO: set position_d_target_ and orientation_d_target_ and calculate path
   }
 
 }  // namespace frankpiv_controller
