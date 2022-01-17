@@ -6,35 +6,49 @@
 import rospy
 import tf.transformations
 import numpy as np
+from math import asin
 
 from interactive_markers.interactive_marker_server import \
     InteractiveMarkerServer, InteractiveMarkerFeedback
 from visualization_msgs.msg import InteractiveMarker, \
     InteractiveMarkerControl
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Pose
+from pivot_control_messages_ros.msg import PivotTrajectory, PivotPose
 from franka_msgs.msg import FrankaState
 
-marker_pose = PoseStamped()
+marker_pose = Pose()
 pose_pub = None
 # [[min_x, max_x], [min_y, max_y], [min_z, max_z]]
 position_limits = [[-0.6, 0.6], [-0.6, 0.6], [0.05, 0.9]]
 
 
 def publisher_callback(msg, link_name):
-    marker_pose.header.frame_id = link_name
-    marker_pose.header.stamp = rospy.Time(0)
-    pose_pub.publish(marker_pose)
+    pivot_pose = PivotPose()
+    pivot_pose.x = marker_pose.position.x
+    pivot_pose.y = marker_pose.position.y
+    pivot_pose.z = marker_pose.position.z
+    #TODO: fix rotation is always wrong
+    # if marker_pose.orientation.x != 0 or marker_pose.orientation.y != 0:
+    #     rospy.logerr("detected rotaion around x and y axis, roll is wrong")
+    # pivot_pose.roll = asin(marker_pose.orientation.z) * 2
+    pivot_pose.roll = 0
+    pivot_trajectory = PivotTrajectory()
+    pivot_trajectory.poses = [pivot_pose]
+    pivot_trajectory.header.frame_id = link_name
+    pivot_trajectory.header.stamp = rospy.Time(0)
+    pivot_trajectory.append = False
+    pose_pub.publish(pivot_trajectory)
 
 
 def process_feedback(feedback):
     if feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
-        marker_pose.pose.position.x = max([min([feedback.pose.position.x,
+        marker_pose.position.x = max([min([feedback.pose.position.x,
                                                 position_limits[0][1]]),
                                            position_limits[0][0]])
-        marker_pose.pose.position.y = max([min([feedback.pose.position.y,
+        marker_pose.position.y = max([min([feedback.pose.position.y,
                                                 position_limits[1][1]]),
                                            position_limits[1][0]])
-        marker_pose.pose.position.z = max([min([feedback.pose.position.z,
+        marker_pose.position.z = max([min([feedback.pose.position.z,
                                                 position_limits[2][1]]),
                                            position_limits[2][0]])
         marker_pose.pose.orientation = feedback.pose.orientation
@@ -51,13 +65,13 @@ def wait_for_initial_pose():
                                     (4, 4))))
     initial_quaternion = initial_quaternion / \
                          np.linalg.norm(initial_quaternion)
-    marker_pose.pose.orientation.x = initial_quaternion[0]
-    marker_pose.pose.orientation.y = initial_quaternion[1]
-    marker_pose.pose.orientation.z = initial_quaternion[2]
-    marker_pose.pose.orientation.w = initial_quaternion[3]
-    marker_pose.pose.position.x = msg.O_T_EE[12]
-    marker_pose.pose.position.y = msg.O_T_EE[13]
-    marker_pose.pose.position.z = msg.O_T_EE[14]
+    marker_pose.orientation.x = initial_quaternion[0]
+    marker_pose.orientation.y = initial_quaternion[1]
+    marker_pose.orientation.z = initial_quaternion[2]
+    marker_pose.orientation.w = initial_quaternion[3]
+    marker_pose.position.x = msg.O_T_EE[12]
+    marker_pose.position.y = msg.O_T_EE[13]
+    marker_pose.position.z = msg.O_T_EE[14]
 
 
 if __name__ == "__main__":
@@ -68,7 +82,7 @@ if __name__ == "__main__":
     wait_for_initial_pose()
 
     pose_pub = rospy.Publisher(
-        "pivot_trajectory", PoseStamped, queue_size=10)
+        "pivot_trajectory", PivotTrajectory, queue_size=10)
     server = InteractiveMarkerServer("pivot_trajectory_marker")
     int_marker = InteractiveMarker()
     int_marker.header.frame_id = link_name
