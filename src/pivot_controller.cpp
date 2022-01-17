@@ -361,7 +361,11 @@ namespace frankpiv_controller {
     // slowly approximate the correct pose, maybe test better filter_params_
     tip_pose_d_ = filter_params_ * tip_pose_d_target_ + (1.0 - filter_params_) * tip_pose_d_;
     position_d_ = tip_pose_d_.head(3);
+    Eigen::Quaterniond last_orientation_d_target(orientation_d_);
     orientation_d_ = calcPivotOrientation(pivot_position_d_, tip_pose_d_);
+    if (last_orientation_d_target.coeffs().dot(orientation_d_.coeffs()) < 0.0) {
+        orientation_d_.coeffs() << -orientation_d_.coeffs();
+    }
   }
 
   Eigen::Matrix<double, 7, 1> PivotController::saturateTorqueRate(
