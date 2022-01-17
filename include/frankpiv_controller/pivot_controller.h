@@ -61,7 +61,8 @@ namespace frankpiv_controller {
 
     std::mutex pivot_positions_queue__mutex_;
     // Protected by mutex the above mutex
-    Eigen::Vector3d pivot_position_;
+    Eigen::Vector3d pivot_position_d_;
+    Eigen::Vector3d pivot_position_d_target_;
     Eigen::Vector3d position_d_;
     Eigen::Quaterniond orientation_d_;
     Eigen::Vector4d tip_pose_d_;
