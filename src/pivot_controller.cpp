@@ -91,18 +91,39 @@ namespace frankpiv_controller {
           "aborting controller init!");
       return false;
     }
-    std::vector<double> ee_t_tt;
+    std::vector<double> ee_t_tt_trans;
+    std::vector<double> ee_t_tt_orientation;
     // Position:xyz and Orientation:xyzw
-    if (!node_handle.getParam("ee_t_tt", ee_t_tt) || ee_t_tt.size() != 7) {
+    if (!node_handle.getParam("ee_t_tt_translation", ee_t_tt_trans) ||
+      ee_t_tt_trans.size() != 3) {
       ROS_ERROR(
-          "PivotController: Invalid or transform from flunsh to tooltip, "
+          "PivotController: No transform from flange to tooltip, "
+          "aborting controller init!");
+      return false;
+    }
+    if (!node_handle.getParam("ee_t_tt_orientation", ee_t_tt_orientation)) {
+      ROS_ERROR(
+          "PivotController: No transform from flange to tooltip, "
           "aborting controller init!");
       return false;
     }
     Eigen::Matrix4d NE_T_Tip;
     NE_T_Tip.setIdentity();
-    NE_T_Tip.topRightCorner<3,1>() << ee_t_tt[0], ee_t_tt[1], ee_t_tt[2];
-    NE_T_Tip.topLeftCorner<3,3>() << Eigen::Quaterniond(ee_t_tt[6], ee_t_tt[3], ee_t_tt[4], ee_t_tt[5]).toRotationMatrix();
+    NE_T_Tip.topRightCorner<3,1>() << ee_t_tt_trans[0], ee_t_tt_trans[1], ee_t_tt_trans[2];
+    if (ee_t_tt_orientation.size() == 7) {
+      NE_T_Tip.topLeftCorner<3,3>() << Eigen::Quaterniond(ee_t_tt_orientation[6], ee_t_tt_orientation[3], ee_t_tt_orientation[4], ee_t_tt_orientation[5]).toRotationMatrix();
+    } else if(ee_t_tt_orientation.size() == 6) {
+      Eigen::Quaterniond rot =
+          Eigen::AngleAxisd(ee_t_tt_orientation[3], Eigen::Vector3d::UnitX()) *
+          Eigen::AngleAxisd(ee_t_tt_orientation[4], Eigen::Vector3d::UnitY()) *
+          Eigen::AngleAxisd(ee_t_tt_orientation[5], Eigen::Vector3d::UnitZ());
+      NE_T_Tip.topLeftCorner<3,3>() << rot.toRotationMatrix();
+    } else {
+      ROS_ERROR(
+          "PivotController: Invalid orientation from flange to tooltip, "
+          "aborting controller init!");
+      return false;
+    }
     ROS_INFO_STREAM_NAMED("PivotController", "NE_T_Tip" << NE_T_Tip);
     franka_msgs::SetEEFrameRequest request;
     franka_msgs::SetEEFrameResponse response;
