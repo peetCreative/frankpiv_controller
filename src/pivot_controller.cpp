@@ -110,13 +110,13 @@ namespace frankpiv_controller {
     Eigen::Matrix4d NE_T_Tip;
     NE_T_Tip.setIdentity();
     NE_T_Tip.topRightCorner<3,1>() << ee_t_tt_trans[0], ee_t_tt_trans[1], ee_t_tt_trans[2];
-    if (ee_t_tt_orientation.size() == 7) {
-      NE_T_Tip.topLeftCorner<3,3>() << Eigen::Quaterniond(ee_t_tt_orientation[6], ee_t_tt_orientation[3], ee_t_tt_orientation[4], ee_t_tt_orientation[5]).toRotationMatrix();
-    } else if(ee_t_tt_orientation.size() == 6) {
+    if (ee_t_tt_orientation.size() == 4) {
+      NE_T_Tip.topLeftCorner<3,3>() << Eigen::Quaterniond(ee_t_tt_orientation[0], ee_t_tt_orientation[1], ee_t_tt_orientation[2], ee_t_tt_orientation[3]).toRotationMatrix();
+    } else if(ee_t_tt_orientation.size() == 3) {
       Eigen::Quaterniond rot =
-          Eigen::AngleAxisd(ee_t_tt_orientation[3], Eigen::Vector3d::UnitX()) *
-          Eigen::AngleAxisd(ee_t_tt_orientation[4], Eigen::Vector3d::UnitY()) *
-          Eigen::AngleAxisd(ee_t_tt_orientation[5], Eigen::Vector3d::UnitZ());
+          Eigen::AngleAxisd(ee_t_tt_orientation[0], Eigen::Vector3d::UnitX()) *
+          Eigen::AngleAxisd(ee_t_tt_orientation[1], Eigen::Vector3d::UnitY()) *
+          Eigen::AngleAxisd(ee_t_tt_orientation[2], Eigen::Vector3d::UnitZ());
       NE_T_Tip.topLeftCorner<3,3>() << rot.toRotationMatrix();
     } else {
       ROS_ERROR(
