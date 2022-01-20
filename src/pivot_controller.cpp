@@ -108,6 +108,15 @@ namespace frankpiv_controller {
           "aborting controller init!");
       return false;
     }
+    double insertion_depth;
+    if (!node_handle.getParam("insertion_depth", insertion_depth)) {
+      ROS_WARN(
+          "PivotController: No insertion depth, mind publishing pivot_position!");
+      insertion_depth_ = std::nullopt;
+    }
+    else {
+      insertion_depth_ = {insertion_depth};
+    }
     Eigen::Matrix4d NE_T_Tip;
     NE_T_Tip.setIdentity();
     NE_T_Tip.topRightCorner<3,1>() << ee_t_tt_trans[0], ee_t_tt_trans[1], ee_t_tt_trans[2];
@@ -249,10 +258,14 @@ namespace frankpiv_controller {
     // this means the tooltip is exactly at the pivot point
     // TODO: make parameter initial insertion depth
     // TODO: the pivot_position_d_ is at the point the current and we are moving slowly towards it
-    // TODO: look if tipPoseQueue is not empty and set first element
-//    tip_pose_queue_.push_back({initial_transform.translation())});
-    pivot_position_d_ = initial_transform.translation();
-    pivot_position_d_target_ = initial_transform.translation();
+    if (insertion_depth_) {
+      Eigen::Translation3d trans_z {0,0,-insertion_depth_.value()};
+      Eigen::Affine3d pp = initial_transform * trans_z;
+      pivot_position_d_ = pp.translation();
+      pivot_position_d_target_ = pp.translation();
+      pivot_position_ready_ = true;
+      ROS_INFO_STREAM_NAMED("PivotController", "Set Pivot Position: " << std::endl << pivot_position_d_);
+    }
 
     tip_pose_d_.head<3>() << initial_transform.translation();
     tip_pose_d_.tail<1>() << getRoll(initial_transform.rotation());
@@ -267,7 +280,7 @@ namespace frankpiv_controller {
     }
     tip_pose_d_target_ << tip_pose_d_;
     position_d_ = initial_transform.translation();
-    orientation_d_ = calcPivotOrientation(pivot_position_d_, tip_pose_d_);
+    orientation_d_ = initial_transform.rotation();
 
     // set nullspace equilibrium configuration to initial q
     q_d_nullspace_ = q_initial;
@@ -327,6 +340,11 @@ namespace frankpiv_controller {
       compute_error();
     }
 
+    if (pivot_position_ready_) {
+      //TODO: don't calc RCM as we don't know where Pivot Point is
+      ROS_WARN_ONCE_NAMED("PivotController", "No Pivot Point configured, do not pivot");
+      return;
+    }
 
     // compute control
     // allocate variables
@@ -423,8 +441,12 @@ namespace frankpiv_controller {
       const geometry_msgs::PoseStamped& msg) {
     std::lock_guard<std::mutex> pivot_point_mutex_lock(
         pivot_positions_queue__mutex_);
-    //TODO: check if we should do anything
     pivot_position_d_target_ << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z;
+    if (!pivot_position_ready_) {
+      ROS_INFO_STREAM_NAMED("PivotController", "Set Pivot Position from message: " << std::endl << pivot_position_d_);
+      pivot_position_d_ = pivot_position_d_target_;
+      pivot_position_ready_ = true;
+    }
   }
 
   void PivotController::toolTipPivotControlCallback(

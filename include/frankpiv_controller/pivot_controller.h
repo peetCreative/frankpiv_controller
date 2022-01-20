@@ -62,6 +62,9 @@ namespace frankpiv_controller {
     Eigen::Matrix<double, 6, 6> cartesian_damping_target_;
     Eigen::Matrix<double, 7, 1> q_d_nullspace_;
 
+    std::optional<double> insertion_depth_;
+    bool pivot_position_ready_ {false};
+
     std::mutex pivot_positions_queue__mutex_;
     // Protected by mutex the above mutex
     Eigen::Vector3d pivot_position_d_;
