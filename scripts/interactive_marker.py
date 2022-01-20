@@ -51,7 +51,7 @@ def process_feedback(feedback):
         marker_pose.position.z = max([min([feedback.pose.position.z,
                                                 position_limits[2][1]]),
                                            position_limits[2][0]])
-        marker_pose.pose.orientation = feedback.pose.orientation
+        marker_pose.orientation = feedback.pose.orientation
     server.applyChanges()
 
 
@@ -59,16 +59,10 @@ def wait_for_initial_pose():
     msg = rospy.wait_for_message("franka_state_controller/franka_states",
                                  FrankaState)  # type: FrankaState
 
-    initial_quaternion = \
-        tf.transformations.quaternion_from_matrix(
-            np.transpose(np.reshape(msg.O_T_EE,
-                                    (4, 4))))
-    initial_quaternion = initial_quaternion / \
-                         np.linalg.norm(initial_quaternion)
-    marker_pose.orientation.x = initial_quaternion[0]
-    marker_pose.orientation.y = initial_quaternion[1]
-    marker_pose.orientation.z = initial_quaternion[2]
-    marker_pose.orientation.w = initial_quaternion[3]
+    marker_pose.orientation.x = 0
+    marker_pose.orientation.y = 0
+    marker_pose.orientation.z = 0
+    marker_pose.orientation.w = 1
     marker_pose.position.x = msg.O_T_EE[12]
     marker_pose.position.y = msg.O_T_EE[13]
     marker_pose.position.z = msg.O_T_EE[14]
@@ -92,7 +86,7 @@ if __name__ == "__main__":
                               "If you move the \nequilibrium "
                               "pose the robot will follow it\n"
                               "so be aware of potential collisions")
-    int_marker.pose = marker_pose.pose
+    int_marker.pose = marker_pose
     # run pose publisher
     rospy.Timer(rospy.Duration(0.005),
                 lambda msg: publisher_callback(msg, link_name))
@@ -114,14 +108,14 @@ if __name__ == "__main__":
     control.name = "move_y"
     control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
     int_marker.controls.append(control)
-    control = InteractiveMarkerControl()
-    control.orientation.w = 1
-    control.orientation.x = 0
-    control.orientation.y = 0
-    control.orientation.z = 1
-    control.name = "rotate_z"
-    control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
-    int_marker.controls.append(control)
+    # control = InteractiveMarkerControl()
+    # control.orientation.w = 1
+    # control.orientation.x = 0
+    # control.orientation.y = 0
+    # control.orientation.z = 1
+    # control.name = "rotate_z"
+    # control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
+    # int_marker.controls.append(control)
     control = InteractiveMarkerControl()
     control.orientation.w = 1
     control.orientation.x = 0
