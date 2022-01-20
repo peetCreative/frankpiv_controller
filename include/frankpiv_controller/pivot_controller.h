@@ -53,7 +53,7 @@ namespace frankpiv_controller {
     double nullspace_damping_target_{0.0};
     const double delta_tau_max_{1.0};
     // max error in m
-    const double pivot_error_max_{0.001};
+    const double pivot_error_max_{0.005};
     // threshold in m
     const double target_error_tolerance_{10e-4};
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_;
@@ -69,6 +69,7 @@ namespace frankpiv_controller {
     // Protected by mutex the above mutex
     Eigen::Vector3d pivot_position_d_;
     Eigen::Vector3d pivot_position_d_target_;
+    double pivot_error_;
     Eigen::Vector3d position_d_;
     Eigen::Quaterniond orientation_d_;
     Eigen::Vector4d tip_pose_d_;
@@ -87,6 +88,9 @@ namespace frankpiv_controller {
     void toolTipPivotControlCallback(const pivot_control_messages_ros::PivotTrajectory& msg);
     ros::Subscriber sub_pivot_point_pose_;
     void pivotPointPoseCallback(const geometry_msgs::PoseStamped& msg);
+    ros::Publisher pub_pivot_error_;
+    ros::Timer timer_pub_pivot_error_;
+    void publishPivotError(const ros::TimerEvent&);
   };
 
 }  // namespace franka_example_controllers

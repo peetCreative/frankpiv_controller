@@ -11,6 +11,7 @@
 #include <controller_interface/controller_base.h>
 #include <franka/robot_state.h>
 #include <pluginlib/class_list_macros.h>
+#include <std_msgs/Float64.h>
 
 namespace frankpiv_controller {
   Eigen::Quaterniond calcPivotOrientation(
@@ -79,7 +80,8 @@ namespace frankpiv_controller {
     sub_pivot_point_pose_ = node_handle.subscribe(
         "pivot_pose", 20, &PivotController::pivotPointPoseCallback, this,
         ros::TransportHints().reliable().tcpNoDelay());
-
+    pub_pivot_error_ = node_handle.advertise<std_msgs::Float64>("pivot_error", 1000);
+    timer_pub_pivot_error_ = node_handle.createTimer(ros::Duration(0.1), &PivotController::publishPivotError, this);
     std::string arm_id;
     if (!node_handle.getParam("arm_id", arm_id)) {
       ROS_ERROR_STREAM("PivotController: Could not read parameter arm_id");
@@ -391,9 +393,9 @@ namespace frankpiv_controller {
     //TODO:  Use ruckig here
     // Problem simulation does not provide O_dP_EE_c (cart. speed) and O_ddP_EE_c (cart. acceleation)
     pivot_position_d_ = filter_params_ * pivot_position_d_target_ + (1.0 - filter_params_) * pivot_position_d_;
-    double pivot_error = getError(pivot_position_d_, transform);
-    if (pivot_error > pivot_error_max_) {
-      tip_pose_d_target_ = tip_pose_d_;
+    pivot_error_ = getError(pivot_position_d_, transform);
+    if (pivot_error_ > pivot_error_max_) {
+      ROS_WARN_STREAM_DELAYED_THROTTLE_NAMED(1, "PivotController", "Pivoting Error too big: " << pivot_error_*100 << "cm");
     }
     // slowly approximate the correct pose, maybe test better filter_params_
     tip_pose_d_ = filter_params_ * tip_pose_d_target_ + (1.0 - filter_params_) * tip_pose_d_;
@@ -471,6 +473,16 @@ namespace frankpiv_controller {
     }
   }
 
+  void PivotController::publishPivotError(const ros::TimerEvent&) {
+    double pivot_error;
+    std_msgs::Float64 msg;
+    {
+      std::lock_guard<std::mutex> pivot_point_mutex_lock(
+          pivot_positions_queue__mutex_);
+      msg.data = pivot_error_;
+    }
+    pub_pivot_error_.publish(msg);
+  }
 }  // namespace frankpiv_controller
 
 PLUGINLIB_EXPORT_CLASS(frankpiv_controller::PivotController,
