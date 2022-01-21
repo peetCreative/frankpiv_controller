@@ -44,7 +44,7 @@ namespace frankpiv_controller {
     return euler_angles[2];
   }
 
-  double getError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose) {
+  double getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose) {
     Eigen::ParametrizedLine<double, 3> line {
         tip_pose.translation(),
         tip_pose.rotation() * Eigen::Vector3d::UnitZ()};
@@ -274,7 +274,7 @@ namespace frankpiv_controller {
 
     //TODO: there are instabilities if tooltip is at pivot_point
     // because than each orientation is correct
-    double error = getError(pivot_position_d_target_, initial_transform);
+    double error = getPivotError(pivot_position_d_target_, initial_transform);
     if (error > pivot_error_max_) {
       ROS_ERROR(
           "PivotController: the distance from the pivot point is "
@@ -308,6 +308,11 @@ namespace frankpiv_controller {
     Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
     Eigen::Vector3d position(transform.translation());
     Eigen::Quaterniond orientation(transform.linear());
+
+    pivot_error_ = getPivotError(pivot_position_d_, transform);
+    if (*pivot_error_ > pivot_error_max_) {
+      ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Pivoting Error too big: " << *pivot_error_*100 << "cm");
+    }
 
     // compute error to desired pose
     Eigen::Matrix<double, 6, 1> error;
@@ -393,10 +398,6 @@ namespace frankpiv_controller {
     //TODO:  Use ruckig here
     // Problem simulation does not provide O_dP_EE_c (cart. speed) and O_ddP_EE_c (cart. acceleation)
     pivot_position_d_ = filter_params_ * pivot_position_d_target_ + (1.0 - filter_params_) * pivot_position_d_;
-    pivot_error_ = getError(pivot_position_d_, transform);
-    if (pivot_error_ > pivot_error_max_) {
-      ROS_WARN_STREAM_DELAYED_THROTTLE_NAMED(1, "PivotController", "Pivoting Error too big: " << pivot_error_*100 << "cm");
-    }
     // slowly approximate the correct pose, maybe test better filter_params_
     tip_pose_d_ = filter_params_ * tip_pose_d_target_ + (1.0 - filter_params_) * tip_pose_d_;
     position_d_ = tip_pose_d_.head(3);
