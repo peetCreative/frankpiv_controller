@@ -85,6 +85,7 @@
           type="interactive_marker.py">
         <param name="link_name" value="$(arg arm_id)_link0" />
         <remap to="pivot_controller/pivot_trajectory" from="pivot_trajectory" />
+        <remap to="pivot_controller/pivot_position" from="pivot_position" />
     </node>
 <!--    pivot_controller/tip_pose_error_trans-->
     <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure" required="false"/>

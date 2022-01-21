@@ -78,7 +78,7 @@ namespace frankpiv_controller {
         ros::TransportHints().reliable().tcpNoDelay());
     //TODO: rather use /tf
     sub_pivot_point_pose_ = node_handle.subscribe(
-        "pivot_pose", 20, &PivotController::pivotPointPoseCallback, this,
+        "pivot_position", 20, &PivotController::pivotPositionCallback, this,
         ros::TransportHints().reliable().tcpNoDelay());
     pub_pivot_error_ = node_handle.advertise<std_msgs::Float64>("pivot_error", 1000);
     pub_tip_pose_error_trans_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_trans", 1000);
@@ -267,7 +267,7 @@ namespace frankpiv_controller {
       pivot_position_d_ = pp.translation();
       pivot_position_d_target_ = pp.translation();
       pivot_position_ready_ = true;
-      ROS_INFO_STREAM_NAMED("PivotController", "Set Pivot Position: " << std::endl << pivot_position_d_);
+      ROS_INFO_STREAM_NAMED("PivotController", "Set Pivot Position by insertion depth: " << std::endl << pivot_position_d_);
     }
 
     tip_pose_d_.head<3>() << initial_transform.translation();
@@ -444,16 +444,17 @@ namespace frankpiv_controller {
 
   }
 
-  void PivotController::pivotPointPoseCallback(
-      const geometry_msgs::PoseStamped& msg) {
+  void PivotController::pivotPositionCallback(
+      const geometry_msgs::Point& msg) {
     std::lock_guard<std::mutex> pivot_point_mutex_lock(
         pivot_positions_queue__mutex_);
-    pivot_position_d_target_ << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z;
+    pivot_position_d_target_ << msg.x, msg.y, msg.z;
     if (!pivot_position_ready_) {
       ROS_INFO_STREAM_NAMED("PivotController", "Set Pivot Position from message: " << std::endl << pivot_position_d_);
       pivot_position_d_ = pivot_position_d_target_;
       pivot_position_ready_ = true;
     }
+    ROS_INFO_STREAM_ONCE_NAMED("PivotController", "Set Pivot Position from message: " << std::endl << pivot_position_d_target_);
   }
 
   void PivotController::toolTipPivotControlCallback(

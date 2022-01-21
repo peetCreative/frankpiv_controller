@@ -16,6 +16,8 @@
 #include <ros/node_handle.h>
 #include <ros/time.h>
 #include <Eigen/Dense>
+#include <std_msgs/Float64.h>
+#include <geometry_msgs/Point.h>
 
 #include <franka_example_controllers/compliance_paramConfig.h>
 #include <franka_hw/franka_model_interface.h>
@@ -89,7 +91,7 @@ namespace frankpiv_controller {
     ros::Subscriber sub_pivot_trajectory_;
     void toolTipPivotControlCallback(const pivot_control_messages_ros::PivotTrajectory& msg);
     ros::Subscriber sub_pivot_point_pose_;
-    void pivotPointPoseCallback(const geometry_msgs::PoseStamped& msg);
+    void pivotPositionCallback(const geometry_msgs::Point& msg);
     ros::Publisher pub_pivot_error_;
     ros::Publisher pub_tip_pose_error_trans_;
     ros::Publisher pub_tip_pose_error_roll_;
