@@ -69,11 +69,13 @@ namespace frankpiv_controller {
     // Protected by mutex the above mutex
     Eigen::Vector3d pivot_position_d_;
     Eigen::Vector3d pivot_position_d_target_;
-    double pivot_error_;
+    std::optional<double> pivot_error_ {std::nullopt};
     Eigen::Vector3d position_d_;
     Eigen::Quaterniond orientation_d_;
     Eigen::Vector4d tip_pose_d_;
     Eigen::Vector4d tip_pose_d_target_;
+    std::optional<double> tip_pose_error_trans_ {std::nullopt};
+    std::optional<double> tip_pose_error_roll_ {std::nullopt};
     std::vector<TipPosePivoting> tip_pose_queue_;
 
     // Dynamic reconfigure
@@ -89,6 +91,8 @@ namespace frankpiv_controller {
     ros::Subscriber sub_pivot_point_pose_;
     void pivotPointPoseCallback(const geometry_msgs::PoseStamped& msg);
     ros::Publisher pub_pivot_error_;
+    ros::Publisher pub_tip_pose_error_trans_;
+    ros::Publisher pub_tip_pose_error_roll_;
     ros::Timer timer_pub_pivot_error_;
     void publishPivotError(const ros::TimerEvent&);
   };

@@ -81,6 +81,8 @@ namespace frankpiv_controller {
         "pivot_pose", 20, &PivotController::pivotPointPoseCallback, this,
         ros::TransportHints().reliable().tcpNoDelay());
     pub_pivot_error_ = node_handle.advertise<std_msgs::Float64>("pivot_error", 1000);
+    pub_tip_pose_error_trans_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_trans", 1000);
+    pub_tip_pose_error_roll_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_roll", 1000);
     timer_pub_pivot_error_ = node_handle.createTimer(ros::Duration(0.1), &PivotController::publishPivotError, this);
     std::string arm_id;
     if (!node_handle.getParam("arm_id", arm_id)) {
@@ -333,6 +335,9 @@ namespace frankpiv_controller {
     };
 
     compute_error();
+    tip_pose_error_trans_ = error.head(3).norm();
+    tip_pose_error_roll_ = abs(getRoll(orientation.matrix()) - getRoll(orientation_d_.matrix()));
+
     // TODO: when is the target position considered reached? Only when error == 0? Or consider joint velocities?
     bool reached_target = true;
     for (size_t i = 0; i < 7; i++) {
@@ -476,13 +481,24 @@ namespace frankpiv_controller {
 
   void PivotController::publishPivotError(const ros::TimerEvent&) {
     double pivot_error;
-    std_msgs::Float64 msg;
+    std_msgs::Float64 pivot_error_msg;
+    std_msgs::Float64 tip_pose_error_trans_msg;
+    std_msgs::Float64 tip_pose_error_roll_msg;
     {
       std::lock_guard<std::mutex> pivot_point_mutex_lock(
           pivot_positions_queue__mutex_);
-      msg.data = pivot_error_;
+      if (pivot_error_ && tip_pose_error_trans_ && tip_pose_error_roll_) {
+        pivot_error_msg.data = *pivot_error_;
+        tip_pose_error_trans_msg.data = *tip_pose_error_trans_;
+        tip_pose_error_roll_msg.data = *tip_pose_error_roll_;
+      } else {
+        ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Do not publish error");
+        return;
+      }
     }
-    pub_pivot_error_.publish(msg);
+    pub_pivot_error_.publish(pivot_error_msg);
+    pub_tip_pose_error_trans_.publish(tip_pose_error_trans_msg);
+    pub_tip_pose_error_roll_.publish(tip_pose_error_roll_msg);
   }
 }  // namespace frankpiv_controller
 
