@@ -291,8 +291,13 @@ namespace frankpiv_controller {
   }
 
   void PivotController::update(const ros::Time& /*time*/,
-                                                   const ros::Duration& /*period*/) {
-    ROS_INFO_ONCE_NAMED("PivotController", "Update Impedance");
+                               const ros::Duration& period) {
+    if (!pivot_position_ready_) {
+      //TODO: don't calc RCM as we don't know where Pivot Point is
+      ROS_WARN_THROTTLE_NAMED(1, "PivotController", "No Pivot Point configured, do not pivot");
+      return;
+    }
+
     // get state variables
     franka::RobotState robot_state = state_handle_->getRobotState();
     std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
@@ -351,11 +356,6 @@ namespace frankpiv_controller {
       compute_error();
     }
 
-    if (pivot_position_ready_) {
-      //TODO: don't calc RCM as we don't know where Pivot Point is
-      ROS_WARN_ONCE_NAMED("PivotController", "No Pivot Point configured, do not pivot");
-      return;
-    }
 
     // compute control
     // allocate variables
