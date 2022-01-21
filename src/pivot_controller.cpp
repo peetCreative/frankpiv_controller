@@ -116,7 +116,6 @@ namespace frankpiv_controller {
     if (!node_handle.getParam("insertion_depth", insertion_depth)) {
       ROS_WARN(
           "PivotController: No insertion depth, mind publishing pivot_position!");
-      insertion_depth_ = std::nullopt;
     }
     else {
       insertion_depth_ = {insertion_depth};
