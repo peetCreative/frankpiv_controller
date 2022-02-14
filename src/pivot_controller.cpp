@@ -83,7 +83,10 @@ namespace frankpiv_controller {
     pub_pivot_error_ = node_handle.advertise<std_msgs::Float64>("pivot_error", 1000);
     pub_tip_pose_error_trans_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_trans", 1000);
     pub_tip_pose_error_roll_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_roll", 1000);
-    timer_pub_pivot_error_ = node_handle.createTimer(ros::Duration(0.1), &PivotController::publishPivotError, this);
+    pub_tip_pose_d_ = node_handle.advertise<geometry_msgs::PoseStamped>("desired/tip_pose_d", 1000);
+    pub_pivot_point_d_ = node_handle.advertise<geometry_msgs::PointStamped>("desired/pivot_point", 1000);
+    timer_pub_pivot_error_ = node_handle.createTimer(ros::Duration(0.1),
+                                                     &PivotController::publishPivotErrorAndDesired, this);
     std::string arm_id;
     if (!node_handle.getParam("arm_id", arm_id)) {
       ROS_ERROR_STREAM("PivotController: Could not read parameter arm_id");
@@ -479,11 +482,14 @@ namespace frankpiv_controller {
     }
   }
 
-  void PivotController::publishPivotError(const ros::TimerEvent&) {
+  void PivotController::publishPivotErrorAndDesired(const ros::TimerEvent&) {
     double pivot_error;
     std_msgs::Float64 pivot_error_msg;
     std_msgs::Float64 tip_pose_error_trans_msg;
     std_msgs::Float64 tip_pose_error_roll_msg;
+    geometry_msgs::PoseStamped tip_pose_d_msg;
+    geometry_msgs::PointStamped pivot_point_d_msg;
+
     {
       std::lock_guard<std::mutex> pivot_point_mutex_lock(
           pivot_positions_queue__mutex_);
@@ -491,14 +497,33 @@ namespace frankpiv_controller {
         pivot_error_msg.data = *pivot_error_;
         tip_pose_error_trans_msg.data = *tip_pose_error_trans_;
         tip_pose_error_roll_msg.data = *tip_pose_error_roll_;
+        tip_pose_d_msg.pose.orientation.w = orientation_d_.w();
+        tip_pose_d_msg.pose.orientation.x = orientation_d_.x();
+        tip_pose_d_msg.pose.orientation.y = orientation_d_.y();
+        tip_pose_d_msg.pose.orientation.z = orientation_d_.z();
+        tip_pose_d_msg.pose.position.x = position_d_.x();
+        tip_pose_d_msg.pose.position.y = position_d_.y();
+        tip_pose_d_msg.pose.position.z = position_d_.z();
+        pivot_point_d_msg.point.x = pivot_position_d_.x();
+        pivot_point_d_msg.point.y = pivot_position_d_.y();
+        pivot_point_d_msg.point.z = pivot_position_d_.z();
       } else {
         ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Do not publish error");
         return;
       }
     }
+    std_msgs::Header header;
+    header.frame_id = "world";
+    header.seq = seq_++;
+    header.stamp = ros::Time::now();
+    pivot_point_d_msg.header = header;
+    tip_pose_d_msg.header = header;
+
     pub_pivot_error_.publish(pivot_error_msg);
     pub_tip_pose_error_trans_.publish(tip_pose_error_trans_msg);
     pub_tip_pose_error_roll_.publish(tip_pose_error_roll_msg);
+    pub_tip_pose_d_.publish(tip_pose_d_msg);
+    pub_pivot_point_d_.publish(pivot_point_d_msg);
   }
 }  // namespace frankpiv_controller
 

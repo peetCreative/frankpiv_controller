@@ -18,6 +18,8 @@
 #include <Eigen/Dense>
 #include <std_msgs/Float64.h>
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <franka_example_controllers/compliance_paramConfig.h>
 #include <franka_hw/franka_model_interface.h>
@@ -95,8 +97,11 @@ namespace frankpiv_controller {
     ros::Publisher pub_pivot_error_;
     ros::Publisher pub_tip_pose_error_trans_;
     ros::Publisher pub_tip_pose_error_roll_;
+    ros::Publisher pub_tip_pose_d_;
+    ros::Publisher pub_pivot_point_d_;
     ros::Timer timer_pub_pivot_error_;
-    void publishPivotError(const ros::TimerEvent&);
+    int seq_ {0};
+    void publishPivotErrorAndDesired(const ros::TimerEvent&);
   };
 
 }  // namespace franka_example_controllers

@@ -6,6 +6,9 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /PivotPoint1
+        - /TipPoseDesired1
+        - /TipPoseCurrent1
       Splitter Ratio: 0.5
     Tree Height: 536
   - Class: rviz/Selection
@@ -121,6 +124,42 @@ Visualization Manager:
       Show Descriptions: true
       Show Visual Aids: false
       Update Topic: /pivot_trajectory_marker/update
+      Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 204; 41; 204
+      Enabled: true
+      History Length: 1
+      Name: PivotPoint
+      Queue Size: 10
+      Radius: 0.009999999776482582
+      Topic: /pivot_controller/desired/pivot_point
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Axes Length: 0.10000000149011612
+      Axes Radius: 0.009999999776482582
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: TipPoseDesired
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Axes
+      Topic: /pivot_controller/desired/tip_pose_d
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.10000000149011612
+      Name: TipPoseCurrent
+      Radius: 0.009999999776482582
+      Reference Frame: panda_EE
+      Show Trail: false
       Value: true
   Enabled: true
   Global Options:
