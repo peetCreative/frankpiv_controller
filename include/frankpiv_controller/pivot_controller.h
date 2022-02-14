@@ -21,7 +21,7 @@
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
 
-#include <franka_example_controllers/compliance_paramConfig.h>
+#include <frankpiv_controller/compliance_paramConfig.h>
 #include <franka_hw/franka_model_interface.h>
 #include <franka_hw/franka_state_interface.h>
 #include <franka_msgs/SetEEFrame.h>
@@ -83,10 +83,10 @@ namespace frankpiv_controller {
     std::vector<TipPosePivoting> tip_pose_queue_;
 
     // Dynamic reconfigure
-    std::unique_ptr<dynamic_reconfigure::Server<franka_example_controllers::compliance_paramConfig>>
+    std::unique_ptr<dynamic_reconfigure::Server<frankpiv_controller::compliance_paramConfig>>
         dynamic_server_compliance_param_;
     ros::NodeHandle dynamic_reconfigure_compliance_param_node_;
-    void complianceParamCallback(franka_example_controllers::compliance_paramConfig& config,
+    void complianceParamCallback(frankpiv_controller::compliance_paramConfig& config,
                                  uint32_t level);
 
     // pivot control and pivot point pose subscriber

@@ -209,8 +209,7 @@ namespace frankpiv_controller {
         ros::NodeHandle(node_handle.getNamespace() + "dynamic_reconfigure_compliance_param_node");
 
     dynamic_server_compliance_param_ = std::make_unique<
-        dynamic_reconfigure::Server<franka_example_controllers::compliance_paramConfig>>(
-
+        dynamic_reconfigure::Server<frankpiv_controller::compliance_paramConfig>>(
         dynamic_reconfigure_compliance_param_node_);
     dynamic_server_compliance_param_->setCallback(
         boost::bind(&PivotController::complianceParamCallback, this, _1, _2));
@@ -428,7 +427,7 @@ namespace frankpiv_controller {
   }
 
   void PivotController::complianceParamCallback(
-      franka_example_controllers::compliance_paramConfig& config,
+      frankpiv_controller::compliance_paramConfig& config,
       uint32_t /*level*/) {
     cartesian_stiffness_target_.setIdentity();
     cartesian_stiffness_target_.topLeftCorner(3, 3)
