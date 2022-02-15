@@ -70,6 +70,7 @@ namespace frankpiv_controller {
     Eigen::Vector3d pivot_position_d_;
     Eigen::Vector3d pivot_position_d_target_;
     std::optional<double> pivot_error_ {std::nullopt};
+    Eigen::Vector3d tracking_error_;
     Eigen::Vector3d position_d_;
     Eigen::Quaterniond orientation_d_;
     Eigen::Vector4d tip_pose_d_;

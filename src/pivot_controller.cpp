@@ -303,10 +303,12 @@ namespace frankpiv_controller {
     std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
     std::array<double, 42> jacobian_array =
         model_handle_->getZeroJacobian(franka::Frame::kEndEffector);
-
+    std::array<double, 42> jacobian_wrist_array =
+            model_handle_->getZeroJacobian(franka::Frame::kJoint7);
     // convert to Eigen
     Eigen::Map<Eigen::Matrix<double, 7, 1>> coriolis(coriolis_array.data());
     Eigen::Map<Eigen::Matrix<double, 6, 7>> jacobian(jacobian_array.data());
+    Eigen::Map<Eigen::Matrix<double, 6, 5>> jacobian_wrist(jacobian_wrist_array.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> q(robot_state.q.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> dq(robot_state.dq.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> tau_J_d(  // NOLINT (readability-identifier-naming)
@@ -370,11 +372,13 @@ namespace frankpiv_controller {
     // Cartesian PD control with damping ratio = 1
     tau_task << jacobian.transpose() *
                 (-cartesian_stiffness_ * error - cartesian_damping_ * (jacobian * dq));
-//   nullspace PD control with damping ratio = 1
+    // nullspace PD control with damping ratio = 1
+    Eigen::Vector3d current_tracking_error = (pivot_position_d_ - transform.translation()).cross(transform.inverse() * (transform * Eigen::Vector3d::UnitZ())) / 0.5;
+    Eigen::Vector3d current_tracking_error_d = current_tracking_error - tracking_error_; // temporal difference as derivative?
+    tracking_error_ = current_tracking_error;
     tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) -
                       jacobian.transpose() * jacobian_transpose_pinv) *
-                     (nullspace_stiffness_ * (q_d_nullspace_ - q) -
-                         nullspace_damping_ * dq);
+                     jacobian_wrist.topRows(3).transpose() * (-nullspace_stiffness_target_ * current_tracking_error - nullspace_damping_target_ * current_tracking_error_d);
     // Desired torque
     tau_d <<
           tau_task
@@ -393,10 +397,6 @@ namespace frankpiv_controller {
         filter_params_ * cartesian_stiffness_target_ + (1.0 - filter_params_) * cartesian_stiffness_;
     cartesian_damping_ =
         filter_params_ * cartesian_damping_target_ + (1.0 - filter_params_) * cartesian_damping_;
-    nullspace_stiffness_ =
-        filter_params_ * nullspace_stiffness_target_ + (1.0 - filter_params_) * nullspace_stiffness_;
-    nullspace_damping_ =
-        filter_params_ * nullspace_damping_target_ + (1.0 - filter_params_) * nullspace_damping_;
     std::lock_guard<std::mutex> position_d_target_mutex_lock(
         pivot_positions_queue__mutex_);
     //TODO:  Use ruckig here
@@ -411,6 +411,7 @@ namespace frankpiv_controller {
         orientation_d_.coeffs() << -orientation_d_.coeffs();
     }
   }
+
 
   Eigen::Matrix<double, 7, 1> PivotController::saturateTorqueRate(
       const Eigen::Matrix<double, 7, 1>& tau_d_calculated,
