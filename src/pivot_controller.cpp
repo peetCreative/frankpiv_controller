@@ -318,6 +318,7 @@ namespace frankpiv_controller {
     F_T_ip.translate(Eigen::Vector3d::UnitZ() * -insertion_depth);
 
     std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
+    std::array<double, 49> mass_array = model_handle_->getMass();
 
     std::array<double, 16> F_T_ip_array;
     Eigen::MatrixXd::Map(&F_T_ip_array[0], 4, 4) = F_T_ip.matrix();
@@ -333,6 +334,8 @@ namespace frankpiv_controller {
 
     // convert to Eigen
     Eigen::Map<Eigen::Matrix<double, 7, 1>> coriolis(coriolis_array.data());
+    Eigen::Map<Eigen::Matrix<double, 7, 7>> mass(mass_array.data());
+    Eigen::MatrixXd mass_inv = mass.inverse();
     Eigen::Map<Eigen::Matrix<double, 6, 7>> jacobian(jacobian_array_ip.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> q(robot_state.q.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> dq(robot_state.dq.data());
@@ -393,7 +396,13 @@ namespace frankpiv_controller {
     // pseudoinverse for nullspace handling
     // kinematic pseuoinverse
     Eigen::MatrixXd jacobian_transpose_pinv;
-    pseudoInverse(jacobian.transpose(), jacobian_transpose_pinv);
+    //Use formula from
+    // Y. Oh, W. K. Chung and Y. Youm,
+    // "Extended impedance control of redundant manipulators using joint space decomposition,"
+    // Proceedings of International Conference on Robotics and Automation, 1997, pp. 1080-1087 vol.2,
+    // doi: 10.1109/ROBOT.1997.614278.
+    jacobian_transpose_pinv = (mass_inv * jacobian.transpose() * (jacobian * mass_inv * jacobian.transpose()).inverse()).transpose();
+//    pseudoInverse(jacobian.transpose(), jacobian_transpose_pinv);
 
     // TODO: PD control
     // Cartesian PD control with damping ratio = 1
