@@ -64,6 +64,10 @@ namespace frankpiv_controller {
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_target_;
     Eigen::Matrix<double, 6, 6> cartesian_damping_;
     Eigen::Matrix<double, 6, 6> cartesian_damping_target_;
+    double error_scaling_z_ {1.0};
+    double error_scaling_z_target_ {1.0};
+    double error_scaling_xy_ {1.0};
+    double error_scaling_xy_target_ {1.0};
     Eigen::Matrix<double, 7, 1> q_d_nullspace_;
 
     std::optional<double> insertion_depth_ {std::nullopt};

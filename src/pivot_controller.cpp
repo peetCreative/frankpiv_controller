@@ -348,8 +348,13 @@ namespace frankpiv_controller {
     Eigen::Matrix<double, 6, 1> error;
 
     auto compute_error = [&] (){
+        Eigen::Matrix3d scaling = Eigen::Matrix3d::Identity();
+        scaling(0,0) = error_scaling_xy_;
+        scaling(1,1) = error_scaling_xy_;
+        scaling(2,2) = error_scaling_z_;
+        scaling = orientation.matrix() * scaling * orientation.inverse().matrix();
         // tip_position error
-        error.head(3) << ip_position - pivot_position_d_;
+        error.head(3) << scaling  * (ip_position - pivot_position_d_);
 
         // orientation error
         if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
@@ -421,6 +426,10 @@ namespace frankpiv_controller {
         filter_params_ * nullspace_stiffness_target_ + (1.0 - filter_params_) * nullspace_stiffness_;
     nullspace_damping_ =
         filter_params_ * nullspace_damping_target_ + (1.0 - filter_params_) * nullspace_damping_;
+    error_scaling_xy_ =
+        filter_params_ * error_scaling_xy_target_ + (1.0 - filter_params_) * error_scaling_xy_;
+    error_scaling_z_ =
+        filter_params_ * error_scaling_z_target_ + (1.0 - filter_params_) * error_scaling_z_;
     std::lock_guard<std::mutex> position_d_target_mutex_lock(
         pivot_positions_queue__mutex_);
     //TODO:  Use ruckig here
@@ -466,6 +475,8 @@ namespace frankpiv_controller {
     nullspace_stiffness_target_ = config.nullspace_stiffness;
     nullspace_damping_target_ = 2.0 * sqrt(config.nullspace_stiffness);
 
+    error_scaling_z_target_ = config.error_scaling_z;
+    error_scaling_xy_target_ = config.error_scaling_xy;
   }
 
   void PivotController::pivotPositionCallback(
