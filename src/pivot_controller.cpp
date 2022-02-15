@@ -302,22 +302,44 @@ namespace frankpiv_controller {
 
     // get state variables
     franka::RobotState robot_state = state_handle_->getRobotState();
+
+    Eigen::Affine3d tip_transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
+    Eigen::Vector3d tip_position(tip_transform.translation());
+    Eigen::Quaterniond orientation(tip_transform.linear());
+
+    // distance pivot point and target point
+    double insertion_depth = (pivot_position_d_ - tip_pose_d_.topLeftCorner<3,1>()).norm();
+    // ip : insition point
+    // translate is alternating
+    Eigen::Vector3d ip_position = tip_transform * (Eigen::Vector3d::UnitZ() * -insertion_depth);
+
+    Eigen::Affine3d F_T_EE(Eigen::Matrix4d::Map(robot_state.F_T_EE.data()));
+    Eigen::Affine3d F_T_ip {F_T_EE};
+    F_T_ip.translate(Eigen::Vector3d::UnitZ() * -insertion_depth);
+
     std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
-    std::array<double, 42> jacobian_array =
-        model_handle_->getZeroJacobian(franka::Frame::kEndEffector);
+
+    std::array<double, 16> F_T_ip_array;
+    Eigen::MatrixXd::Map(&F_T_ip_array[0], 4, 4) = F_T_ip.matrix();
+    std::array<double, 42> jacobian_array_ip =
+        model_handle_->getZeroJacobian(franka::Frame::kEndEffector,
+                                       robot_state.q,
+                                       F_T_ip_array,
+                                       {1,0,0,0,
+                                        0,1,0,0,
+                                        0,0,1,0,
+                                        0,0,0,1}
+                                       );
 
     // convert to Eigen
     Eigen::Map<Eigen::Matrix<double, 7, 1>> coriolis(coriolis_array.data());
-    Eigen::Map<Eigen::Matrix<double, 6, 7>> jacobian(jacobian_array.data());
+    Eigen::Map<Eigen::Matrix<double, 6, 7>> jacobian(jacobian_array_ip.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> q(robot_state.q.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> dq(robot_state.dq.data());
     Eigen::Map<Eigen::Matrix<double, 7, 1>> tau_J_d(  // NOLINT (readability-identifier-naming)
         robot_state.tau_J_d.data());
-    Eigen::Affine3d transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
-    Eigen::Vector3d position(transform.translation());
-    Eigen::Quaterniond orientation(transform.linear());
 
-    pivot_error_ = getPivotError(pivot_position_d_, transform);
+    pivot_error_ = getPivotError(pivot_position_d_, tip_transform);
     if (*pivot_error_ > pivot_error_max_) {
       ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Pivoting Error too big: " << *pivot_error_*100 << "cm");
     }
@@ -326,8 +348,8 @@ namespace frankpiv_controller {
     Eigen::Matrix<double, 6, 1> error;
 
     auto compute_error = [&] (){
-        // position error
-        error.head(3) << position - position_d_;
+        // tip_position error
+        error.head(3) << ip_position - pivot_position_d_;
 
         // orientation error
         if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
@@ -337,14 +359,14 @@ namespace frankpiv_controller {
         Eigen::Quaterniond error_quaternion(orientation.inverse() * orientation_d_);
         error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
         // Transform to base frame
-        error.tail(3) << -transform.linear() * error.tail(3);
+        error.tail(3) << -tip_transform.linear() * error.tail(3);
     };
 
     compute_error();
-    tip_pose_error_trans_ = error.head(3).norm();
+    tip_pose_error_trans_ = (tip_position - position_d_).norm();
     tip_pose_error_roll_ = abs(getRoll(orientation.matrix()) - getRoll(orientation_d_.matrix()));
 
-    // TODO: when is the target position considered reached? Only when error == 0? Or consider joint velocities?
+    // TODO: when is the target tip_position considered reached? Only when error == 0? Or consider joint velocities?
     bool reached_target = true;
     for (size_t i = 0; i < 7; i++) {
       if (error[i] < -target_error_tolerance_ || error[i] > target_error_tolerance_) {
