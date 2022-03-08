@@ -30,14 +30,26 @@
                 -J $(arg arm_id)_finger_joint2 0.001"
     />
 
+    <arg name="machine" default=""/>
+    <arg name="remote_address" default=""/>
+    <arg name="remote_user" default=""/>
+    <arg name="remote_env" default=""/>
+
+    <machine name="REMOTE"
+             address="$(arg remote_address)"
+             user="$(arg remote_user)"
+             env-loader="$(arg remote_env)"/>
+
     <node name="rqt_console" pkg="rqt_console" type="rqt_console" />
 
-    <include file="$(find gazebo_ros)/launch/empty_world.launch" if="$(arg gazebo)">
+    <include file="$(find frankpiv_controller)/launch/gazebo_empty_world.launch" if="$(arg gazebo)">
         <arg name="world_name" value="$(arg world)"/>
         <!-- Always start in paused mode, and only unpause when spawning the model -->
         <arg name="paused" value="true"/>
         <arg name="gui" value="$(eval not arg('headless'))"/>
         <arg name="use_sim_time" value="true"/>
+        <arg name="machine" value="$(arg machine)"/>
+        <arg name="node_start_delay" value="$(arg node_start_delay)"/>
     </include>
 
     <param name="robot_description"
