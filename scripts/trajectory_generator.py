@@ -6,7 +6,8 @@
 import rospy
 import tf.transformations
 import numpy as np
-from math import asin
+import argparse
+from math import sin
 
 from interactive_markers.interactive_marker_server import \
     InteractiveMarkerServer, InteractiveMarkerFeedback
@@ -22,9 +23,10 @@ tip_pose_pub = None
 pivot_position_pub = None
 # [[min_x, max_x], [min_y, max_y], [min_z, max_z]]
 position_limits = [[-0.6, 0.6], [-0.6, 0.6], [0.05, 0.9]]
-
+generate_movements = False
 
 def publisher_callback(msg, link_name):
+
     pivot_pose = PivotPose()
     pivot_pose.x = tip_pose.position.x
     pivot_pose.y = tip_pose.position.y
@@ -34,10 +36,14 @@ def publisher_callback(msg, link_name):
     #     rospy.logerr("detected rotaion around x and y axis, roll is wrong")
     # pivot_pose.roll = asin(marker_pose.orientation.z) * 2
     pivot_pose.roll = 0
+    if generate_movements:
+        time = rospy.get_rostime() - start_time
+        pivot_pose.y = tip_pose.position.y + 0.05 * sin(0.5*time.to_sec())
+
     pivot_trajectory = PivotTrajectory()
     pivot_trajectory.poses = [pivot_pose]
     pivot_trajectory.header.frame_id = link_name
-    pivot_trajectory.header.stamp = rospy.Time(0)
+    pivot_trajectory.header.stamp = rospy.get_rostime()
     pivot_trajectory.append = False
 
     pivot_position_msg = Point()
@@ -109,18 +115,8 @@ def wait_for_initial_pose():
     pivot_position.position.y = t[1][0]
     pivot_position.position.z = t[2][0]
 
-if __name__ == "__main__":
-    rospy.init_node("pivot_trajectory_node")
-    listener = tf.TransformListener()
-    link_name = rospy.get_param("~link_name")
 
-    wait_for_initial_pose()
-
-    tip_pose_pub = rospy.Publisher(
-        "pivot_trajectory", PivotTrajectory, queue_size=10)
-    pivot_position_pub = rospy.Publisher(
-        "pivot_position", Point, queue_size=10)
-    server = InteractiveMarkerServer("pivot_trajectory_marker")
+def add_interactive_markers():
     int_marker = InteractiveMarker()
     int_marker.header.frame_id = link_name
     int_marker.scale = 0.3
@@ -131,8 +127,6 @@ if __name__ == "__main__":
                               "so be aware of potential collisions")
     int_marker.pose = tip_pose
     # run pose publisher
-    rospy.Timer(rospy.Duration(0.005),
-                lambda msg: publisher_callback(msg, link_name))
 
     # insert a box
     control = InteractiveMarkerControl()
@@ -203,4 +197,35 @@ if __name__ == "__main__":
 
     server.applyChanges()
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='generate a trajectory.')
+    parser.add_argument('--generate-movements', action='store_true')
+    args, unknown = parser.parse_known_args()
+    generate_movements = args.generate_movements
+
+    rospy.init_node("pivot_trajectory_node")
+    listener = tf.TransformListener()
+    link_name = rospy.get_param("~link_name")
+
+    wait_for_initial_pose()
+
+    tip_pose_pub = rospy.Publisher(
+        "pivot_trajectory", PivotTrajectory, queue_size=10)
+    pivot_position_pub = rospy.Publisher(
+        "pivot_position", Point, queue_size=10)
+
+    if generate_movements:
+        rospy.logwarn("Start automized movements")
+        start_time = rospy.get_rostime()
+    else:
+        rospy.logwarn("Start only interactive")
+        rospy.logwarn(f"sys:{sys.argv}")
+        rospy.logwarn(f"args:{args}")
+        rospy.logwarn(f"unknown:{unknown}")
+
+    rospy.Timer(rospy.Duration(0.005),
+                lambda msg: publisher_callback(msg, link_name))
+
+    server = InteractiveMarkerServer("pivot_trajectory_marker")
+    add_interactive_markers()
     rospy.spin()
