@@ -215,13 +215,10 @@ if __name__ == "__main__":
         "pivot_position", Point, queue_size=10)
 
     if generate_movements:
-        rospy.logwarn("Start automized movements")
+        rospy.loginfo("Start automized movements")
         start_time = rospy.get_rostime()
     else:
-        rospy.logwarn("Start only interactive")
-        rospy.logwarn(f"sys:{sys.argv}")
-        rospy.logwarn(f"args:{args}")
-        rospy.logwarn(f"unknown:{unknown}")
+        rospy.loginfo("Start only interactive")
 
     rospy.Timer(rospy.Duration(0.005),
                 lambda msg: publisher_callback(msg, link_name))
