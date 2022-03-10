@@ -6,11 +6,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(catkin REQUIRED COMPONENTS
+        gazebo_dev
         controller_interface
         dynamic_reconfigure
         eigen_conversions
         franka_hw
         franka_gripper
+        franka_gazebo
+        gazebo_ros_control
         geometry_msgs
         hardware_interface
         tf
@@ -20,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
         realtime_tools
         roscpp
         rospy
+        pivot_control_messages_ros
         )
 
 find_package(Eigen3 REQUIRED)
@@ -38,6 +42,8 @@ catkin_package(
         eigen_conversions
         franka_hw
         franka_gripper
+        franka_gazebo
+        gazebo_ros_control
         geometry_msgs
         hardware_interface
         tf
@@ -46,6 +52,9 @@ catkin_package(
         pluginlib
         realtime_tools
         roscpp
+        pivot_control_messages_ros
+        INCLUDE_DIRS include
+        LIBRARIES franka_hw_sim
         DEPENDS Franka
 )
 

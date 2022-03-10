@@ -12,14 +12,18 @@
 
   <build_depend>message_generation</build_depend>
   <build_depend>eigen</build_depend>
+  <build_depend>gazebo_dev</build_depend>
 
   <build_export_depend>message_runtime</build_export_depend>
 
+  <depend>gazebo_ros_control</depend>
   <depend>controller_interface</depend>
   <depend>dynamic_reconfigure</depend>
   <depend>eigen_conversions</depend>
   <depend>franka_hw</depend>
   <depend>franka_gripper</depend>
+  <depend>franka_gazebo</depend>
+  <depend>pivot_control_messages_ros</depend>
   <depend>geometry_msgs</depend>
   <depend>hardware_interface</depend>
   <depend>tf</depend>
@@ -29,6 +33,7 @@
   <depend>realtime_tools</depend>
   <depend>roscpp</depend>
 
+  <exec_depend>gazebo_ros</exec_depend>
   <exec_depend>franka_control</exec_depend>
   <exec_depend>franka_description</exec_depend>
   <exec_depend>message_runtime</exec_depend>
