@@ -11,7 +11,6 @@
 #include <controller_interface/controller_base.h>
 #include <franka/robot_state.h>
 #include <pluginlib/class_list_macros.h>
-#include <std_msgs/Float64.h>
 
 namespace frankpiv_controller {
   Eigen::Quaterniond calcPivotOrientation(
@@ -514,12 +513,6 @@ namespace frankpiv_controller {
     if (!tip_pose_queue_.empty())
     {
       tip_pose_d_target_ << tip_pose_queue_[0];
-//      Eigen::Quaterniond last_orientation_d_target(orientation_d_target_);
-//      orientation_d_target_.coeffs() << msg->pose.orientation.x, msg->pose.orientation.y,
-//          msg->pose.orientation.z, msg->pose.orientation.w;
-//      if (last_orientation_d_target.coeffs().dot(orientation_d_target_.coeffs()) < 0.0) {
-//        orientation_d_target_.coeffs() << -orientation_d_target_.coeffs();
-//      }
     }
   }
 
