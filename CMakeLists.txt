@@ -132,3 +132,7 @@ if(PEP_TOOLS)
     file(GLOB_RECURSE PYSOURCES ${CMAKE_CURRENT_SOURCE_DIR}/scripts/*.py)
     add_pyformat_target(franka_control FILES ${PYSOURCES})
 endif()
+
+if(CATKIN_ENABLE_TESTING)
+    add_subdirectory(test)
+endif()
