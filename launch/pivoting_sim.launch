@@ -9,6 +9,9 @@
     <arg name="rviz"        default="false" doc="Should RVIz be launched?" />
     <arg name="node_start_delay" default="10.0" />
     <arg name="generate_movements" default="false" />
+    <arg name="generate_movements_arg" value="$(eval '--generate-movements' if arg('generate_movements') else '')"/>
+    <arg name="interactive" default="false" />
+    <arg name="interactive_arg" value="$(eval '' if arg('interactive') else '--no-interactive')"/>
 
     <!-- Robot Customization -->
     <arg name="arm_id"      default="panda" doc="Name of the panda robot to spawn" />
@@ -95,7 +98,7 @@
     <node name="trajectory_generator"
           pkg="frankpiv_controller"
           type="trajectory_generator.py"
-          args="$(eval '--generate-movements' if generate_movements else '--hey')"
+          args="$(arg interactive_arg) $(arg generate_movements_arg)"
     >
         <param name="link_name" value="$(arg arm_id)_link0" />
         <remap to="pivot_controller/pivot_trajectory" from="pivot_trajectory" />

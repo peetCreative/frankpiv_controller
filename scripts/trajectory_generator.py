@@ -202,6 +202,7 @@ def add_interactive_markers():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='generate a trajectory.')
     parser.add_argument('--generate-movements', action='store_true')
+    parser.add_argument('--no-interactive', action='store_true')
     args, unknown = parser.parse_known_args()
     generate_movements = args.generate_movements
 
@@ -217,14 +218,18 @@ if __name__ == "__main__":
         "pivot_position", Point, queue_size=10)
 
     if generate_movements:
-        rospy.loginfo("Start automized movements")
+        rospy.loginfo("Start generated movements")
         start_time = rospy.get_rostime()
     else:
-        rospy.loginfo("Start only interactive")
+        rospy.loginfo("No generated movements")
 
     rospy.Timer(rospy.Duration(0, 5000000),
                 lambda msg: publisher_callback(msg))
 
-    server = InteractiveMarkerServer("pivot_trajectory_marker")
-    add_interactive_markers()
+    if args.no_interactive:
+        rospy.loginfo("No interactive control")
+    else:
+        rospy.loginfo("Start interactive control")
+        server = InteractiveMarkerServer("pivot_trajectory_marker")
+        add_interactive_markers()
     rospy.spin()
