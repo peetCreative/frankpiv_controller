@@ -307,14 +307,14 @@ namespace frankpiv_controller {
     Eigen::Quaterniond orientation(tip_transform.linear());
 
     // distance pivot point and target point
-    double insertion_depth = (pivot_position_d_ - tip_pose_d_.topLeftCorner<3,1>()).norm();
+    double insertion_depth_d_ = (pivot_position_d_ - tip_pose_d_.topLeftCorner<3,1>()).norm();
     // ip : insition point
     // translate is alternating
-    Eigen::Vector3d ip_position = tip_transform * (Eigen::Vector3d::UnitZ() * -insertion_depth);
+    Eigen::Vector3d ip_position = tip_transform * (Eigen::Vector3d::UnitZ() * -insertion_depth_d_);
 
     Eigen::Affine3d F_T_EE(Eigen::Matrix4d::Map(robot_state.F_T_EE.data()));
     Eigen::Affine3d F_T_ip {F_T_EE};
-    F_T_ip.translate(Eigen::Vector3d::UnitZ() * -insertion_depth);
+    F_T_ip.translate(Eigen::Vector3d::UnitZ() * -insertion_depth_d_);
 
     std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
     std::array<double, 49> mass_array = model_handle_->getMass();
