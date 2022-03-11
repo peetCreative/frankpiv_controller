@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-# Copied from franka_ros/franka_example_controllers/scripts/interactive_marker.py
-#TODO: Limit to movements possible in pivoting
-#TODO: Add movement of Pivot point/entry points
+# Copied franka_ros/franka_example_controllers/scripts/interactive_marker.py
+# TODO: Limit to movements possible in pivoting
 
 import rospy
 import tf.transformations
@@ -25,13 +24,14 @@ pivot_position_pub = None
 position_limits = [[-0.6, 0.6], [-0.6, 0.6], [0.05, 0.9]]
 generate_movements = False
 
-def publisher_callback(msg, link_name):
+
+def publisher_callback(msg):
 
     pivot_pose = PivotPose()
     pivot_pose.x = tip_pose.position.x
     pivot_pose.y = tip_pose.position.y
     pivot_pose.z = tip_pose.position.z
-    #TODO: fix rotation is always wrong
+    # TODO: fix rotation is always wrong
     # if marker_pose.orientation.x != 0 or marker_pose.orientation.y != 0:
     #     rospy.logerr("detected rotaion around x and y axis, roll is wrong")
     # pivot_pose.roll = asin(marker_pose.orientation.z) * 2
@@ -69,17 +69,18 @@ def process_feedback_tool_tip(feedback):
         tip_pose.orientation = feedback.pose.orientation
     server.applyChanges()
 
+
 def process_feedback_pivot_position(feedback):
     if feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
         pivot_position.position.x = max([min([feedback.pose.position.x,
                                         position_limits[0][1]]),
-                                   position_limits[0][0]])
+                                        position_limits[0][0]])
         pivot_position.position.y = max([min([feedback.pose.position.y,
                                         position_limits[1][1]]),
-                                   position_limits[1][0]])
+                                        position_limits[1][0]])
         pivot_position.position.z = max([min([feedback.pose.position.z,
                                         position_limits[2][1]]),
-                                   position_limits[2][0]])
+                                        position_limits[2][0]])
     server.applyChanges()
 
 
@@ -105,8 +106,8 @@ def wait_for_initial_pose():
         rospy.logwarn(f"insertion_depth param not found: {param_name}")
     x = np.transpose(np.reshape(msg.O_T_EE,
                                 (4, 4)))
-    vec = np.transpose(np.array([[0.0,0.0,-insertion_depth,1]]))
-    t = np.matmul(x,vec)
+    vec = np.transpose(np.array([[0.0, 0.0, -insertion_depth, 1]]))
+    t = np.matmul(x, vec)
     pivot_position.orientation.w = 1
     pivot_position.orientation.x = 0
     pivot_position.orientation.y = 0
@@ -167,7 +168,7 @@ def add_interactive_markers():
     int_marker.header.frame_id = link_name
     int_marker.scale = 0.3
     int_marker.name = "pivot_position"
-    int_marker.description = ("Pivot Position")
+    int_marker.description = "Pivot Position"
     int_marker.pose = pivot_position
     control = InteractiveMarkerControl()
     control.orientation.w = 1
@@ -197,6 +198,7 @@ def add_interactive_markers():
 
     server.applyChanges()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='generate a trajectory.')
     parser.add_argument('--generate-movements', action='store_true')
@@ -220,8 +222,8 @@ if __name__ == "__main__":
     else:
         rospy.loginfo("Start only interactive")
 
-    rospy.Timer(rospy.Duration(0.005),
-                lambda msg: publisher_callback(msg, link_name))
+    rospy.Timer(rospy.Duration(0, 5000000),
+                lambda msg: publisher_callback(msg))
 
     server = InteractiveMarkerServer("pivot_trajectory_marker")
     add_interactive_markers()
