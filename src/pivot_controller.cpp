@@ -448,8 +448,13 @@ namespace frankpiv_controller {
     position_d_ = tip_pose_d_.head(3);
     Eigen::Quaterniond last_orientation_d_target(orientation_d_);
     orientation_d_ = calcPivotOrientation(pivot_position_d_, tip_pose_d_);
+    double angle = orientation_d_.angularDistance(last_orientation_d_target);
     if (last_orientation_d_target.coeffs().dot(orientation_d_.coeffs()) < 0.0) {
         orientation_d_.coeffs() << -orientation_d_.coeffs();
+    }
+    if (angle > 0.1) {
+        ROS_ERROR_STREAM_NAMED("PivotController",
+                               "Angular difference between current and last orientation too big: " << angle);
     }
   }
 
