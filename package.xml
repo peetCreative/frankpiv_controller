@@ -41,6 +41,7 @@
   <exec_depend>moveit_commander</exec_depend>
   <exec_depend>rospy</exec_depend>
 
+  <test_depend>rosunit</test_depend>
   <export>
     <controller_interface plugin="${prefix}/frankpiv_controller_plugin.xml"/>
   </export>
