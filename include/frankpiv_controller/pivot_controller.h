@@ -36,11 +36,23 @@ namespace frankpiv_controller {
       hardware_interface::EffortJointInterface,
       franka_hw::FrankaStateInterface> {
   public:
+    // Calculates the PivotOrientation from the tip position and the pivot position.
+    static Eigen::Quaterniond calcPivotOrientation(
+        const Eigen::Vector3d &pivotPoint, const Eigen::Vector4d &tipPose);
+    // Calculates back the roll from an orientation
+    static double getRoll(Eigen::Matrix3d orientation);
+    // Calculates Pivot error from the pivot position and the current tip pose transfrom
+    static double getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose);
+    // Compute Cartesian Error
+    bool compute_error(
+        Eigen::Matrix<double, 6, 1> &error,
+        Eigen::Quaterniond &orientation,
+        const Eigen::Vector3d &ip_position,
+        const Eigen::Affine3d tip_transform);
+    // override functions of franka_hw::FrankaModelInterface
     bool init(hardware_interface::RobotHW* robot_hw, ros::NodeHandle& node_handle) override;
     void starting(const ros::Time&) override;
     void update(const ros::Time&, const ros::Duration& period) override;
-
-  private:
     // Saturation
     Eigen::Matrix<double, 7, 1> saturateTorqueRate(
         const Eigen::Matrix<double, 7, 1>& tau_d_calculated,

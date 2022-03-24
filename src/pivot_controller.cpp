@@ -13,7 +13,7 @@
 #include <pluginlib/class_list_macros.h>
 
 namespace frankpiv_controller {
-  Eigen::Quaterniond calcPivotOrientation(
+  Eigen::Quaterniond PivotController::calcPivotOrientation(
       const Eigen::Vector3d &pivotPoint, const Eigen::Vector4d &tipPose) {
     // we do a zxz rotation
     // 1. around z for the roll
@@ -35,7 +35,7 @@ namespace frankpiv_controller {
     return rot_z * rot_x * roll_mat;
   }
 
-  double getRoll(Eigen::Matrix3d orientation) {
+  double PivotController::getRoll(Eigen::Matrix3d orientation) {
     Eigen::Vector3d euler_angles = orientation.eulerAngles(2,0,2);
     if (euler_angles[1] < 0) {
       euler_angles = {euler_angles[0]- M_PI, -euler_angles[1], euler_angles[2]+ M_PI};
@@ -43,7 +43,7 @@ namespace frankpiv_controller {
     return euler_angles[2];
   }
 
-  double getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose) {
+  double PivotController::getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose) {
     Eigen::ParametrizedLine<double, 3> line {
         tip_pose.translation(),
         tip_pose.rotation() * Eigen::Vector3d::UnitZ()};
@@ -52,6 +52,7 @@ namespace frankpiv_controller {
     return (pivot_point - line.projection(pivot_point)).norm();
   }
 
+  // unused
   inline void pseudoInverse(const Eigen::MatrixXd& M_, Eigen::MatrixXd& M_pinv_, bool damped = true) {
     double lambda_ = damped ? 0.2 : 0.0;
 
@@ -349,27 +350,7 @@ namespace frankpiv_controller {
     // compute error to desired pose
     Eigen::Matrix<double, 6, 1> error;
 
-    auto compute_error = [&] (){
-        Eigen::Matrix3d scaling = Eigen::Matrix3d::Identity();
-        scaling(0,0) = error_scaling_xy_;
-        scaling(1,1) = error_scaling_xy_;
-        scaling(2,2) = error_scaling_z_;
-        scaling = orientation.matrix() * scaling * orientation.inverse().matrix();
-        // tip_position error
-        error.head(3) << scaling  * (ip_position - pivot_position_d_);
-
-        // orientation error
-        if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
-          orientation.coeffs() << -orientation.coeffs();
-        }
-        // "difference" quaternion
-        Eigen::Quaterniond error_quaternion(orientation.inverse() * orientation_d_);
-        error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
-        // Transform to base frame
-        error.tail(3) << -tip_transform.linear() * error.tail(3);
-    };
-
-    compute_error();
+    compute_error(error, orientation, ip_position, tip_transform);
     tip_pose_error_trans_ = (tip_position - position_d_).norm();
     tip_pose_error_roll_ = abs(getRoll(orientation.matrix()) - getRoll(orientation_d_.matrix()));
 
@@ -384,7 +365,7 @@ namespace frankpiv_controller {
     if (reached_target && tip_pose_queue_.size() > 1) {
       tip_pose_queue_.erase(tip_pose_queue_.begin());
       tip_pose_d_target_ = tip_pose_queue_.front();
-      compute_error();
+      compute_error(error, orientation, ip_position, tip_transform);
     }
 
 
@@ -457,6 +438,30 @@ namespace frankpiv_controller {
                                "Angular difference between current and last orientation too big: " << angle);
     }
   }
+
+  bool PivotController::compute_error(
+      Eigen::Matrix<double, 6, 1> &error,
+      Eigen::Quaterniond &orientation,
+      const Eigen::Vector3d &ip_position,
+      const Eigen::Affine3d tip_transform) {
+    Eigen::Matrix3d scaling = Eigen::Matrix3d::Identity();
+    scaling(0,0) = error_scaling_xy_;
+    scaling(1,1) = error_scaling_xy_;
+    scaling(2,2) = error_scaling_z_;
+    scaling = orientation.matrix() * scaling * orientation.inverse().matrix();
+    // tip_position error
+    error.head(3) << scaling  * (ip_position - pivot_position_d_);
+
+    // orientation error
+    if (orientation_d_.coeffs().dot(orientation.coeffs()) < 0.0) {
+      orientation.coeffs() << -orientation.coeffs();
+    }
+    // "difference" quaternion
+    Eigen::Quaterniond error_quaternion(orientation.inverse() * orientation_d_);
+    error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
+    // Transform to base frame
+    error.tail(3) << -tip_transform.linear() * error.tail(3);
+  };
 
   Eigen::Matrix<double, 7, 1> PivotController::saturateTorqueRate(
       const Eigen::Matrix<double, 7, 1>& tau_d_calculated,
