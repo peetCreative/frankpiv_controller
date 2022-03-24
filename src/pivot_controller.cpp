@@ -439,7 +439,7 @@ namespace frankpiv_controller {
     }
   }
 
-  bool PivotController::compute_error(
+  void PivotController::compute_error(
       Eigen::Matrix<double, 6, 1> &error,
       Eigen::Quaterniond &orientation,
       const Eigen::Vector3d &ip_position,
