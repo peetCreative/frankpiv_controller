@@ -4,12 +4,10 @@
 #include <Eigen/Dense>
 #include "frankpiv_controller/pivot_controller.h"
 
-#define ROTATION_EPSILON 0.01
+#define TEST_EPSILON 0.01
 typedef std::array<double, 9> Array9d;
 typedef std::tuple<Array9d, double> GetRollTestType;
 
-//TODO: Test static functions
-// getPivotError
 TEST(TestStaticFunctionsSuite, calcPivotOrientationTest) {
   Eigen::Vector3d pivot_point {0,0,0};
   Eigen::Vector4d tipPose {0,0,1, 0};
@@ -18,7 +16,7 @@ TEST(TestStaticFunctionsSuite, calcPivotOrientationTest) {
           pivot_point, tipPose);
   Eigen::Quaterniond expected {0.707,0,0,0.707};
   auto diff = result.angularDistance(expected);
-  EXPECT_LT(diff, ROTATION_EPSILON);
+  EXPECT_LT(diff, TEST_EPSILON);
 }
 
 class TestStaticFunctionsSuiteOrientation : public ::testing::TestWithParam<GetRollTestType> {};
@@ -28,7 +26,7 @@ TEST_P(TestStaticFunctionsSuiteOrientation, getRollTest) {
   Eigen::Map<Eigen::Matrix3d> mat(arr.data());
   double result =
       frankpiv_controller::PivotController::getRoll(mat);
-  EXPECT_LT(std::abs(result - std::get<1>(GetParam())) , ROTATION_EPSILON);
+  EXPECT_LT(std::abs(result - std::get<1>(GetParam())) , TEST_EPSILON);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -45,6 +43,13 @@ INSTANTIATE_TEST_SUITE_P(
           )
     );
 
+TEST(TestStaticFunctionsSuite, getPivotErrorTest) {
+  Eigen::Vector3d pivot_point(0,0,0);
+  Eigen::Affine3d tip_pose = Eigen::Affine3d::Identity();
+  tip_pose.translate(Eigen::Vector3d(0,0,1));
+  double result = frankpiv_controller::PivotController::getPivotError(pivot_point, tip_pose);
+  EXPECT_LT(std::abs(result - 0) , TEST_EPSILON);
+}
 
 
 //TODO: Test member function compute_error
