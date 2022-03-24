@@ -133,6 +133,9 @@ if(PEP_TOOLS)
     add_pyformat_target(franka_control FILES ${PYSOURCES})
 endif()
 
+option(BUILD_UNIT_TESTS "Build the unit tests" ON)
+option(BUILD_INTEGRATION_TESTS "Build the integration tests (publish performance)" OFF)
+
 if(CATKIN_ENABLE_TESTING)
     add_subdirectory(test)
 endif()
