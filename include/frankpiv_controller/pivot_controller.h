@@ -44,7 +44,7 @@ namespace frankpiv_controller {
     // Calculates Pivot error from the pivot position and the current tip pose transfrom
     static double getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose);
     // Compute Cartesian Error
-    bool compute_error(
+    void compute_error(
         Eigen::Matrix<double, 6, 1> &error,
         Eigen::Quaterniond &orientation,
         const Eigen::Vector3d &ip_position,
