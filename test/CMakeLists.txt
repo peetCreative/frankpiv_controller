@@ -17,21 +17,10 @@ endif(BUILD_UNIT_TESTS)
 
 ## performance/integration test
 if(BUILD_INTEGRATION_TESTS)
-    add_rostest_gtest(frankpiv_controller_movements
-            launch/frankpiv_controller_movements.test
-            frankpiv_controller_movements.cpp
-            )
+    add_rostest(launch/frankpiv_controller_movements.test)
 
-    add_dependencies(frankpiv_controller_movements
-            ${${PROJECT_NAME}_EXPORTED_TARGETS}
-            ${catkin_EXPORTED_TARGETS}
-            )
-
-    target_link_libraries(frankpiv_controller_movements
-            ${catkin_LIBRARIES}
-            )
-
-    target_include_directories(frankpiv_controller_movements PUBLIC
-            ${catkin_INCLUDE_DIRS}
-            )
+    catkin_install_python(
+            PROGRAMS sim_movement_test.py
+            DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+    )
 endif(BUILD_INTEGRATION_TESTS)

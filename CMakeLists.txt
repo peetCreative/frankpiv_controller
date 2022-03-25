@@ -134,7 +134,7 @@ if(PEP_TOOLS)
 endif()
 
 option(BUILD_UNIT_TESTS "Build the unit tests" ON)
-option(BUILD_INTEGRATION_TESTS "Build the integration tests (publish performance)" OFF)
+option(BUILD_INTEGRATION_TESTS "Build the integration tests (publish performance)" ON)
 
 if(CATKIN_ENABLE_TESTING)
     add_subdirectory(test)
