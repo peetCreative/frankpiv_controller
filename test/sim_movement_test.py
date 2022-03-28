@@ -30,7 +30,7 @@ class SimMovementTestCase(unittest.TestCase):
         pivot_pose.y = self.initial_tip_pose[1]
         pivot_pose.z = self.initial_tip_pose[2]
         pivot_pose.roll = 0
-        self.pivot_trajectory_msg.poses = [self.pivot_pose]
+        self.pivot_trajectory_msg.poses = [pivot_pose]
         self.pivot_trajectory_msg.header.frame_id = self.link_name
         self.pivot_trajectory_msg.header.stamp = rospy.get_rostime()
         self.pivot_trajectory_msg.append = False
@@ -52,15 +52,21 @@ class SimMovementTestCase(unittest.TestCase):
         self.pivot_position_pub = rospy.Publisher(
             "self.pivot_position", Point, queue_size=10)
         self.speed_to_radius = self.speed/self.radius
-        self.publish_callback()
+        #publish once
+        self.publish_callback(True)
         rospy.sleep(3)
 
-    def publish_callback(self):
-        time = rospy.get_rostime() - self.start_time
+    def publish_callback(self, set_zero=False):
+        if not set_zero:
+            time = rospy.get_rostime() - self.start_time
+            rad = time.to_sec()
+        else:
+            rad = 0
+        rospy.logwarn(f"publish {rad}")
         self.pivot_trajectory_msg.poses[0].x = \
-            self.initial_tip_pose.x + self.radius * cos(self.speed_to_radius*time.to_sec())
+            self.initial_tip_pose[0] + self.radius * cos(self.speed_to_radius*rad)
         self.pivot_trajectory_msg.poses[0].y = \
-            self.initial_tip_pose.y + self.radius * sin(self.speed_to_radius*time.to_sec())
+            self.initial_tip_pose[1] + self.radius * sin(self.speed_to_radius*rad)
         self.pivot_trajectory_msg.header.frame_id = self.link_name
         self.pivot_trajectory_msg.header.stamp = rospy.get_rostime()
 
@@ -74,13 +80,13 @@ class SimMovementTestCase(unittest.TestCase):
         self.assertTrue(data < self.error_threshold_rot)
 
     def test_circular_movements(self):
-        self.timer = rospy.Timer(rospy.Duration(1), self.publish_callback)
         self.start_time = rospy.get_rostime()
-        self.rospy.Subscriber("/pivot_controller/tip_pose_error_trans", Float64,
+        self.timer = rospy.Timer(rospy.Duration(0.05), self.publish_callback)
+        rospy.Subscriber("/pivot_controller/tip_pose_error_trans", Float64,
                               self.trans_threshold_test)
-        self.rospy.Subscriber("/pivot_controller/tip_pose_error_roll", Float64,
+        rospy.Subscriber("/pivot_controller/tip_pose_error_roll", Float64,
                               self.rot_threshold_test)
-        self.rospy.Subscriber("/pivot_controller/pivot_error", Float64,
+        rospy.Subscriber("/pivot_controller/pivot_error", Float64,
                               self.trans_threshold_test)
         rospy.sleep(20)
 

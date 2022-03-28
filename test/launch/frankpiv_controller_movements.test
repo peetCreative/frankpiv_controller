@@ -5,8 +5,9 @@
     <arg name="arm_id"      value="panda" doc="Name of the panda robot to spawn" />
 
     <include file="$(find frankpiv_controller)/launch/pivoting_sim.launch">
+        <arg name="disable_gui" value="false"/>
         <arg name="gazebo"      value="true"/>
-        <arg name="headless"    value="false" />
+        <arg name="headless"    value="true" />
         <arg name="paused"      value="false" />
         <arg name="world"       value="worlds/empty.world"  />
         <arg name="rviz"        value="false" />
@@ -29,5 +30,7 @@
         />
     </include>
 <!--    add trajectory generator -->
-    <test test-name="sim_movement_test" pkg="frankpiv_controller" type="sim_movement_test.py" />
+    <test test-name="sim_movement_test" pkg="frankpiv_controller" type="sim_movement_test.py">
+        <param name="link_name" value="$(arg arm_id)_link0" />
+    </test>
 </launch>
