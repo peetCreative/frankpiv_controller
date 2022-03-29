@@ -11,6 +11,8 @@ class SimMovementTestCase(unittest.TestCase):
     pivot_trajectory_msg = PivotTrajectory()
     pivot_position_msg = Point()
     initial_pivot_pose = PivotPose()
+
+    initialized = False
     # radius of the circular movement in m
     radius = 0.05
     # speed in m/s
@@ -53,31 +55,33 @@ class SimMovementTestCase(unittest.TestCase):
             "self.pivot_position", Point, queue_size=10)
         self.speed_to_radius = self.speed/self.radius
         #publish once
-        self.publish_callback(True)
+        self.publish_callback()
         rospy.sleep(3)
 
-    def publish_callback(self, set_zero=False):
-        if not set_zero:
+    def publish_callback(self, event=None):
+        if self.initialized:
             time = rospy.get_rostime() - self.start_time
             rad = time.to_sec()
         else:
+            self.initialized = True
             rad = 0
-        rospy.logwarn(f"publish {rad}")
+        rospy.loginfo(f"publish rad:{rad}, self.radius:{self.radius}, self.speed_to_radius:{self.speed_to_radius}")
         self.pivot_trajectory_msg.poses[0].x = \
             self.initial_tip_pose[0] + self.radius * cos(self.speed_to_radius*rad)
         self.pivot_trajectory_msg.poses[0].y = \
             self.initial_tip_pose[1] + self.radius * sin(self.speed_to_radius*rad)
+        rospy.loginfo(self.pivot_trajectory_msg)
         self.pivot_trajectory_msg.header.frame_id = self.link_name
         self.pivot_trajectory_msg.header.stamp = rospy.get_rostime()
 
         self.tip_pose_pub.publish(self.pivot_trajectory_msg)
         self.pivot_position_pub.publish(self.pivot_position_msg)
 
-    def trans_threshold_test(self, data):
-        self.assertTrue(data < self.error_threshold_trans)
+    def trans_threshold_test(self, error):
+        self.assertTrue(error.data < self.error_threshold_trans)
 
-    def rot_threshold_test(self, data):
-        self.assertTrue(data < self.error_threshold_rot)
+    def rot_threshold_test(self, error):
+        self.assertTrue(error.data < self.error_threshold_rot)
 
     def test_circular_movements(self):
         self.start_time = rospy.get_rostime()
