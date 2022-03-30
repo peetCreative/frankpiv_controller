@@ -204,7 +204,6 @@ if __name__ == "__main__":
     parser.add_argument('--generate-movements', action='store_true')
     parser.add_argument('--no-interactive', action='store_true')
     args, unknown = parser.parse_known_args()
-    generate_movements = args.generate_movements
 
     rospy.init_node("pivot_trajectory_node")
     listener = tf.TransformListener()
@@ -217,7 +216,7 @@ if __name__ == "__main__":
     pivot_position_pub = rospy.Publisher(
         "pivot_position", Point, queue_size=10)
 
-    if generate_movements:
+    if args.generate_movements:
         rospy.loginfo("Start generated movements")
         start_time = rospy.get_rostime()
     else:
@@ -232,4 +231,8 @@ if __name__ == "__main__":
         rospy.loginfo("Start interactive control")
         server = InteractiveMarkerServer("pivot_trajectory_marker")
         add_interactive_markers()
-    rospy.spin()
+
+    if not args.no_interactive or args.generate_movements:
+        rospy.spin()
+    else:
+        rospy.logwarn("No interactive and not generate movements, quit")
