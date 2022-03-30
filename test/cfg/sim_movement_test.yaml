@@ -1,3 +1,6 @@
 sim_movement_test:
-  initial_tip_pose: [0, 0, 0]
-  initial_pivot_point: [0, 0, 0]
+  initial_tip_pose: [0.328, 0, 0.387]
+  initial_pivot_point: [0.258, 0, 0.44]
+  radius: 0.02
+  speed: 0.01
+  test_duration: 10

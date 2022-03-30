@@ -11,7 +11,7 @@
         <arg name="paused"      value="false" />
         <arg name="world"       value="worlds/empty.world"  />
         <arg name="rviz"        value="false" />
-        <arg name="node_start_delay" value="10.0" />
+        <arg name="node_start_delay" value="2.0" />
         <arg name="generate_movements" value="false" />
         <arg name="interactive" value="false" />
 
@@ -30,7 +30,10 @@
         />
     </include>
 <!--    add trajectory generator -->
-    <test test-name="sim_movement_test" pkg="frankpiv_controller" type="sim_movement_test.py">
+    <test test-name="sim_movement_test" pkg="frankpiv_controller"
+          type="sim_movement_test.py">
         <param name="link_name" value="$(arg arm_id)_link0" />
+        <remap to="pivot_controller/pivot_trajectory" from="pivot_trajectory" />
+        <remap to="pivot_controller/pivot_position" from="pivot_position" />
     </test>
 </launch>
