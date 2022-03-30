@@ -1,42 +1,22 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="operation_type" default="simulation" doc="operation type: [simulation, robot]"/>
+    <arg name="run_remote" default="false" doc="Should the simulation/robot be run on a remote machine?"/>
+    <arg name="run_simulation"     value="$(eval arg('operation_type') == 'simulation')"  doc="Should the gazebo simulation be launched? Use false in case if you want to include this file and launch gazebo yourself" />
+    <arg name="run_robot"   value="$(eval arg('operation_type') == 'robot')"/>
 
     <arg name="disable_gui" default="false" doc="option to disable gui"/>
+    <arg name="disable_gazebo_gui" default="true" doc="option to disable only gazebo gui, for performance"/>
 
-    <!-- Gazebo & GUI Configuration -->
-    <arg name="gazebo"      default="true"  doc="Should the gazebo simulation be launched? Use false in case if you want to include this file and launch gazebo yourself" />
-    <arg name="headless"    default="false" doc="Should the gazebo GUI be launched?" />
-    <arg name="paused"      default="false" doc="Should the simulation directly be stopped at 0s?" />
-    <arg name="world"       default="worlds/empty.world" doc="Filename to a SDF World for gazebo to use" />
-    <arg name="rviz"        default="false" doc="Should RVIz be launched?" />
-    <arg name="node_start_delay" default="10.0" />
+    <arg name="plot_start_delay" default="10.0" />
     <arg name="generate_movements" default="false" />
     <arg name="generate_movements_arg" value="$(eval '--generate-movements' if arg('generate_movements') else '')"/>
+    <arg name="rviz"        default="false" doc="Should RVIz be launched?" />
     <arg name="interactive" default="false" />
     <arg name="interactive_arg" value="$(eval '' if arg('interactive') else '--no-interactive')"/>
-
-    <!-- Robot Customization -->
     <arg name="arm_id"      default="panda" doc="Name of the panda robot to spawn" />
-    <arg name="x"           default="0"     doc="How far forward to place the base of the robot in [m]?" />
-    <arg name="y"           default="0"     doc="How far leftwards to place the base of the robot in [m]?" />
-    <arg name="z"           default="0"     doc="How far upwards to place the base of the robot in [m]?" />
-    <arg name="roll"        default="0"     doc="How much to rotate the base of the robot around its X-axis in [rad]?" />
-    <arg name="pitch"       default="0"     doc="How much to rotate the base of the robot around its Y-axis in [rad]?" />
-    <arg name="yaw"         default="0"     doc="How much to rotate the base of the robot around its Z-axis in [rad]?" />
-    <arg name="initial_joint_positions"
-         doc="Initial joint configuration of the panda. Specify as a list of name/value pairs in form of '-J [name-of-joint] [value-in-rad]'. Default is a 90 degree bend in the elbow"
-         default="-J $(arg arm_id)_joint1 0
-                -J $(arg arm_id)_joint2 -1.0
-                -J $(arg arm_id)_joint3 0
-                -J $(arg arm_id)_joint4 -2.35619449019
-                -J $(arg arm_id)_joint5 0
-                -J $(arg arm_id)_joint6 1.57079632679
-                -J $(arg arm_id)_joint7 0
-                -J $(arg arm_id)_finger_joint1 0.001
-                -J $(arg arm_id)_finger_joint2 0.001"
-    />
 
-    <arg name="machine" default=""/>
+    <arg name="machine_name" value="$(eval 'REMOTE' if arg('run_remote') else '')"/>
     <arg name="remote_address" default=""/>
     <arg name="remote_user" default=""/>
     <arg name="remote_env" default=""/>
@@ -46,39 +26,22 @@
              user="$(arg remote_user)"
              env-loader="$(arg remote_env)"/>
 
+    <!-- ip of the robot (on the remote adress)-->
+    <arg name="robot_ip" default=""/>
+
     <node name="rqt_console" pkg="rqt_console" type="rqt_console" unless="$(arg disable_gui)" />
 
-    <include file="$(find frankpiv_controller)/launch/gazebo_empty_world.launch" if="$(arg gazebo)">
-        <arg name="world_name" value="$(arg world)"/>
-        <!-- Always start in paused mode, and only unpause when spawning the model -->
-        <arg name="paused" value="true"/>
-        <arg name="gui" value="$(eval not arg('headless'))"/>
-        <arg name="use_sim_time" value="true"/>
-        <arg name="machine" value="$(arg machine)"/>
-        <arg name="node_start_delay" value="$(arg node_start_delay)"/>
+    <include file="$(find frankpiv_controller)/launch/simulation.launch" if="$(arg run_simulation)">
+        <arg name="machine_name" value="$(arg machine_name)"/>
+        <arg name="headless" value="$(eval arg('disable_gui') or arg('disable_gazebo_gui'))"/>
     </include>
 
-    <param name="robot_description"
-           command="xacro $(find franka_description)/robots/panda_arm.urdf.xacro
-                  gazebo:=true
-                  hand:=false
-                  arm_id:=$(arg arm_id)
-                  xyz:='$(arg x) $(arg y) $(arg z)'
-                  rpy:='$(arg roll) $(arg pitch) $(arg yaw)'">
-    </param>
+    <include file="$(find frankpiv_controller)/launch/robot.launch" if="$(arg run_robot)">
+        <arg name="machine_name" value="$(arg machine_name)"/>
+        <arg name="robot_ip" value="$(arg robot_ip)"/>
+    </include>
 
-    <rosparam file="$(find franka_gazebo)/config/franka_hw_sim.yaml" subst_value="true" />
-    <rosparam file="$(find franka_gazebo)/config/sim_controllers.yaml" subst_value="true" />
     <rosparam file="$(find frankpiv_controller)/cfg/controller.yaml" subst_value="true" />
-
-    <arg name="unpause" value="$(eval '' if arg('paused') else '-unpause')" />
-    <node name="$(arg arm_id)_model_spawner"
-          pkg="gazebo_ros"
-          type="spawn_model"
-          args="-param robot_description -urdf -model $(arg arm_id) $(arg unpause)
-              $(arg initial_joint_positions)
-              "/>
-
     <node pkg="controller_manager"
           type="spawner"
           name="$(arg arm_id)_controller_spawner"
@@ -88,11 +51,11 @@
 
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
     <node name="joint_state_publisher" type="joint_state_publisher" pkg="joint_state_publisher">
-        <rosparam param="source_list">[franka_state_controller/joint_states, franka_gripper/joint_states] </rosparam>
+        <rosparam param="source_list">[franka_state_controller/joint_states] </rosparam>
         <param name="rate" value="30"/>
     </node>
     <node name="joint_state_desired_publisher" type="joint_state_publisher" pkg="joint_state_publisher">
-        <rosparam param="source_list">[franka_state_controller/joint_states_desired, franka_gripper/joint_states] </rosparam>
+        <rosparam param="source_list">[franka_state_controller/joint_states_desired] </rosparam>
         <param name="rate" value="30"/>
         <remap from="joint_states" to="joint_states_desired" />
     </node>
@@ -116,8 +79,6 @@
            unless="$(arg disable_gui)"/>
     <node name="error_plot" pkg="rqt_plot"  output="screen" type="rqt_plot"
           args="/pivot_controller/pivot_error/data /pivot_controller/tip_pose_error_trans/data"
-          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "
+          launch-prefix="bash -c 'sleep $(arg plot_start_delay); $0 $@' "
           unless="$(arg disable_gui)"/>
-    <!--  <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find franka_example_controllers)/launch/robot.rviz"/>-->
-
 </launch>

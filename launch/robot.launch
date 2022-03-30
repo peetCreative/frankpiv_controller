@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<launch>
+    <arg name="robot_ip" />
+    <arg name="machine_name" default=""/>
+
+    <param name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm.urdf.xacro hand:=false" />
+
+    <node name="franka_control" pkg="franka_control" type="franka_control_node" output="screen" required="true"
+        machine="$(arg machine_name)">
+        <rosparam command="load" file="$(find franka_control)/config/franka_control_node.yaml" />
+        <param name="robot_ip" value="$(arg robot_ip"/>
+    </node>
+</launch>

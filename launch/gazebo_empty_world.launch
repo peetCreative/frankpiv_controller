@@ -22,8 +22,8 @@
     <arg name="enable_ros_network" default="true" />
     <arg name="server_required" default="false"/>
     <arg name="gui_required" default="false"/>
-    <arg name="machine" default=""/>
-    <arg name="node_start_delay" default="0.0"/>
+    <arg name="machine_name" default=""/>
+    <arg name="start_delay" value="3.0"/>
 
     <!-- set use_sim_time flag -->
     <param name="/use_sim_time" value="$(arg use_sim_time)"/>
@@ -47,12 +47,13 @@
     </group>
     <node name="gazebo" pkg="gazebo_ros" type="$(arg script_type)" respawn="$(arg respawn_gazebo)" output="$(arg output)"
           args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)"
-          required="$(arg server_required)" machine="$(arg machine)" />
+          required="$(arg server_required)" machine="$(arg machine_name)" />
 
     <!-- start gazebo client -->
     <group if="$(arg gui)">
         <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="$(arg output)" args="$(arg command_arg3)"
-              required="$(arg gui_required)" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
+              required="$(arg gui_required)"
+              launch-prefix="bash -c 'sleep $(arg start_delay); $0 $@' "/>
     </group>
 
 </launch>
