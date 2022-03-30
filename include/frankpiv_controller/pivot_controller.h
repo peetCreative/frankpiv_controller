@@ -20,6 +20,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <tf/transform_broadcaster.h>
 
 #include <frankpiv_controller/compliance_paramConfig.h>
 #include <franka_hw/franka_model_interface.h>
@@ -41,8 +42,12 @@ namespace frankpiv_controller {
         const Eigen::Vector3d &pivotPoint, const Eigen::Vector4d &tipPose);
     // Calculates back the roll from an orientation
     static double getRoll(Eigen::Matrix3d orientation);
+    // Calculates projected Point of the pivot point to the z-Axis of the tool
+    static Eigen::Affine3d getPivotPointProjected(
+        const Eigen::Vector3d &pivot_point, const Eigen::Affine3d &tip_pose);
     // Calculates Pivot error from the pivot position and the current tip pose transfrom
-    static double getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose);
+    static double getPivotError(
+        const Eigen::Vector3d &pivot_point, const Eigen::Affine3d &tip_pose);
     // Compute Cartesian Error
     void compute_error(
         Eigen::Matrix<double, 6, 1> &error,
@@ -89,13 +94,10 @@ namespace frankpiv_controller {
     // Protected by mutex the above mutex
     Eigen::Vector3d pivot_position_d_;
     Eigen::Vector3d pivot_position_d_target_;
-    std::optional<double> pivot_error_ {std::nullopt};
     Eigen::Vector3d position_d_;
     Eigen::Quaterniond orientation_d_;
     Eigen::Vector4d tip_pose_d_;
     Eigen::Vector4d tip_pose_d_target_;
-    std::optional<double> tip_pose_error_trans_ {std::nullopt};
-    std::optional<double> tip_pose_error_roll_ {std::nullopt};
     std::vector<TipPosePivoting> tip_pose_queue_;
 
     // Dynamic reconfigure
@@ -115,6 +117,7 @@ namespace frankpiv_controller {
     ros::Publisher pub_tip_pose_error_roll_;
     ros::Publisher pub_tip_pose_d_;
     ros::Publisher pub_pivot_point_d_;
+    tf::TransformBroadcaster br_pivot_point_;
     ros::Timer timer_pub_pivot_error_;
     int seq_ {0};
     void publishPivotErrorAndDesired(const ros::TimerEvent&);

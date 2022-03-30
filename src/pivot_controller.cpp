@@ -11,6 +11,7 @@
 #include <controller_interface/controller_base.h>
 #include <franka/robot_state.h>
 #include <pluginlib/class_list_macros.h>
+#include <tf_conversions/tf_eigen.h>
 
 namespace frankpiv_controller {
   Eigen::Quaterniond PivotController::calcPivotOrientation(
@@ -43,13 +44,21 @@ namespace frankpiv_controller {
     return euler_angles[2];
   }
 
-  double PivotController::getPivotError(Eigen::Vector3d &pivot_point, Eigen::Affine3d &tip_pose) {
+  Eigen::Affine3d PivotController::getPivotPointProjected(
+      const Eigen::Vector3d &pivot_point, const Eigen::Affine3d &tip_pose) {
     Eigen::ParametrizedLine<double, 3> line {
         tip_pose.translation(),
         tip_pose.rotation() * Eigen::Vector3d::UnitZ()};
+    Eigen::Affine3d projection {tip_pose};
     // find the projection of the pivot_postion_ on to the current tool axis
     // and take the distance between to the actual pivot_position_d_target_
-    return (pivot_point - line.projection(pivot_point)).norm();
+    projection.translation() = line.projection(pivot_point);
+    return projection;
+  }
+
+  double PivotController::getPivotError(
+      const Eigen::Vector3d &pivot_point, const Eigen::Affine3d &tip_pose) {
+    return (pivot_point - getPivotPointProjected(pivot_point, tip_pose).translation()).norm();
   }
 
   // unused
@@ -342,17 +351,15 @@ namespace frankpiv_controller {
     Eigen::Map<Eigen::Matrix<double, 7, 1>> tau_J_d(  // NOLINT (readability-identifier-naming)
         robot_state.tau_J_d.data());
 
-    pivot_error_ = getPivotError(pivot_position_d_, tip_transform);
-    if (*pivot_error_ > pivot_error_max_) {
-      ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Pivoting Error too big: " << *pivot_error_*100 << "cm");
+    double pivot_error = getPivotError(pivot_position_d_, tip_transform);
+    if (pivot_error > pivot_error_max_) {
+      ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Pivoting Error too big: " << pivot_error*100 << "cm");
     }
 
     // compute error to desired pose
     Eigen::Matrix<double, 6, 1> error;
 
     compute_error(error, orientation, ip_position, tip_transform);
-    tip_pose_error_trans_ = (tip_position - position_d_).norm();
-    tip_pose_error_roll_ = abs(getRoll(orientation.matrix()) - getRoll(orientation_d_.matrix()));
 
     // TODO: when is the target tip_position considered reached? Only when error == 0? Or consider joint velocities?
     bool reached_target = true;
@@ -527,34 +534,34 @@ namespace frankpiv_controller {
   }
 
   void PivotController::publishPivotErrorAndDesired(const ros::TimerEvent&) {
-    double pivot_error;
     std_msgs::Float64 pivot_error_msg;
     std_msgs::Float64 tip_pose_error_trans_msg;
     std_msgs::Float64 tip_pose_error_roll_msg;
     geometry_msgs::PoseStamped tip_pose_d_msg;
     geometry_msgs::PointStamped pivot_point_d_msg;
+    tf::Transform pivot_point_current_tf;
 
     {
       std::lock_guard<std::mutex> pivot_point_mutex_lock(
           pivot_positions_queue__mutex_);
-      if (pivot_error_ && tip_pose_error_trans_ && tip_pose_error_roll_) {
-        pivot_error_msg.data = *pivot_error_;
-        tip_pose_error_trans_msg.data = *tip_pose_error_trans_;
-        tip_pose_error_roll_msg.data = *tip_pose_error_roll_;
-        tip_pose_d_msg.pose.orientation.w = orientation_d_.w();
-        tip_pose_d_msg.pose.orientation.x = orientation_d_.x();
-        tip_pose_d_msg.pose.orientation.y = orientation_d_.y();
-        tip_pose_d_msg.pose.orientation.z = orientation_d_.z();
-        tip_pose_d_msg.pose.position.x = position_d_.x();
-        tip_pose_d_msg.pose.position.y = position_d_.y();
-        tip_pose_d_msg.pose.position.z = position_d_.z();
-        pivot_point_d_msg.point.x = pivot_position_d_.x();
-        pivot_point_d_msg.point.y = pivot_position_d_.y();
-        pivot_point_d_msg.point.z = pivot_position_d_.z();
-      } else {
-        ROS_WARN_STREAM_THROTTLE_NAMED(1, "PivotController", "Do not publish error");
-        return;
-      }
+      franka::RobotState robot_state = state_handle_->getRobotState();
+      Eigen::Affine3d tip_transform(Eigen::Matrix4d::Map(robot_state.O_T_EE.data()));
+      pivot_error_msg.data = getPivotError(pivot_position_d_target_, tip_transform);
+      tip_pose_error_trans_msg.data = (tip_transform.translation() - position_d_).norm();
+      tip_pose_error_roll_msg.data = abs(getRoll(tip_transform.linear().matrix()) - getRoll(orientation_d_.matrix()));
+      tip_pose_d_msg.pose.orientation.w = orientation_d_.w();
+      tip_pose_d_msg.pose.orientation.x = orientation_d_.x();
+      tip_pose_d_msg.pose.orientation.y = orientation_d_.y();
+      tip_pose_d_msg.pose.orientation.z = orientation_d_.z();
+      tip_pose_d_msg.pose.position.x = position_d_.x();
+      tip_pose_d_msg.pose.position.y = position_d_.y();
+      tip_pose_d_msg.pose.position.z = position_d_.z();
+      pivot_point_d_msg.point.x = pivot_position_d_.x();
+      pivot_point_d_msg.point.y = pivot_position_d_.y();
+      pivot_point_d_msg.point.z = pivot_position_d_.z();
+      tf::transformEigenToTF(
+          getPivotPointProjected(pivot_position_d_target_, tip_transform),
+          pivot_point_current_tf);
     }
     std_msgs::Header header;
     header.frame_id = "world";
@@ -568,6 +575,10 @@ namespace frankpiv_controller {
     pub_tip_pose_error_roll_.publish(tip_pose_error_roll_msg);
     pub_tip_pose_d_.publish(tip_pose_d_msg);
     pub_pivot_point_d_.publish(pivot_point_d_msg);
+    br_pivot_point_.sendTransform(
+        tf::StampedTransform(
+            pivot_point_current_tf, ros::Time::now(),
+            "world", "pivot_point_projected"));
   }
 }  // namespace frankpiv_controller
 
