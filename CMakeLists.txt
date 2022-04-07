@@ -27,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
         )
 
 find_package(Eigen3 REQUIRED)
-find_package(Franka 0.7.0 REQUIRED)
+find_package(Franka 0.9.0 REQUIRED)
 
 generate_dynamic_reconfigure_options(
         cfg/compliance_param.cfg
