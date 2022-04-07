@@ -42,6 +42,7 @@
     </include>
 
     <rosparam file="$(find frankpiv_controller)/cfg/controller.yaml" subst_value="true" />
+    <param name="operation_type" value="$(arg operation_type)" type="str"/>
     <node pkg="controller_manager"
           type="spawner"
           name="$(arg arm_id)_controller_spawner"

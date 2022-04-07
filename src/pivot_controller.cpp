@@ -132,6 +132,12 @@ namespace frankpiv_controller {
     else {
       insertion_depth_ = {insertion_depth};
     }
+    std::string operation_type;
+    if (!node_handle.getParam("/operation_type", operation_type)) {
+        ROS_ERROR(
+            "PivotController: operation type not given");
+        return false;
+    }
     Eigen::Matrix4d NE_T_Tip;
     NE_T_Tip.setIdentity();
     NE_T_Tip.topRightCorner<3,1>() << ee_t_tt_trans[0], ee_t_tt_trans[1], ee_t_tt_trans[2];
@@ -152,9 +158,17 @@ namespace frankpiv_controller {
     ROS_INFO_STREAM_NAMED("PivotController", "NE_T_Tip" << NE_T_Tip);
     franka_msgs::SetEEFrameRequest request;
     franka_msgs::SetEEFrameResponse response;
+    // Hack around because I don't know where to place remap-tag in launch file
+    std::string service_prefix;
+    if (operation_type == "simulation") {
+        service_prefix = "/";
+    }
+    if (operation_type == "robot") {
+        service_prefix = "/franka_control/";
+    }
     // Call service to set EE
     ros::ServiceClient set_EE_frame_client =
-        node_handle.serviceClient<franka_msgs::SetEEFrame>("/set_EE_frame");
+    node_handle.serviceClient<franka_msgs::SetEEFrame>(service_prefix + "set_EE_frame");
     // kinda didn't found a better solution..
     for (int i = 0; i < 16; i++) {
       request.NE_T_EE[i] = NE_T_Tip.data()[i];
@@ -164,6 +178,7 @@ namespace frankpiv_controller {
     if(!response.success) {
       ROS_ERROR_STREAM_NAMED(
           "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << response.error);
+      return false;
     }
 
     auto* model_interface = robot_hw->get<franka_hw::FrankaModelInterface>();
