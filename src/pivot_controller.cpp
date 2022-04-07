@@ -564,7 +564,7 @@ namespace frankpiv_controller {
           pivot_point_current_tf);
     }
     std_msgs::Header header;
-    header.frame_id = "world";
+    header.frame_id = "panda_link0";
     header.seq = seq_++;
     header.stamp = ros::Time::now();
     pivot_point_d_msg.header = header;
@@ -578,7 +578,7 @@ namespace frankpiv_controller {
     br_pivot_point_.sendTransform(
         tf::StampedTransform(
             pivot_point_current_tf, ros::Time::now(),
-            "world", "pivot_point_projected"));
+            "panda_link0", "pivot_point_projected"));
   }
 }  // namespace frankpiv_controller
 
