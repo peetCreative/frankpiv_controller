@@ -23,6 +23,7 @@
   <depend>franka_hw</depend>
   <depend>franka_gripper</depend>
   <depend>franka_gazebo</depend>
+  <depend>franka_msgs</depend>
   <depend>pivot_control_messages_ros</depend>
   <depend>geometry_msgs</depend>
   <depend>hardware_interface</depend>

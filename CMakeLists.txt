@@ -43,6 +43,7 @@ catkin_package(
         franka_hw
         franka_gripper
         franka_gazebo
+        franka_msgs
         gazebo_ros_control
         geometry_msgs
         hardware_interface
