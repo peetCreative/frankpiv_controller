@@ -78,36 +78,6 @@ namespace frankpiv_controller {
 
   bool PivotController::init(hardware_interface::RobotHW* robot_hw,
                                                  ros::NodeHandle& node_handle) {
-    std::vector<double> cartesian_stiffness_vector;
-    std::vector<double> cartesian_damping_vector;
-
-    tip_pose_queue_ = {};
-    sub_pivot_trajectory_ = node_handle.subscribe(
-        "pivot_trajectory", 20, &PivotController::toolTipPivotControlCallback, this,
-        ros::TransportHints().reliable().tcpNoDelay());
-    //TODO: rather use /tf
-    sub_pivot_point_pose_ = node_handle.subscribe(
-        "pivot_position", 20, &PivotController::pivotPositionCallback, this,
-        ros::TransportHints().reliable().tcpNoDelay());
-    pub_pivot_error_ = node_handle.advertise<std_msgs::Float64>("pivot_error", 1000);
-    pub_tip_pose_error_trans_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_trans", 1000);
-    pub_tip_pose_error_roll_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_roll", 1000);
-    pub_tip_pose_d_ = node_handle.advertise<geometry_msgs::PoseStamped>("desired/tip_pose_d", 1000);
-    pub_pivot_point_d_ = node_handle.advertise<geometry_msgs::PointStamped>("desired/pivot_point", 1000);
-    timer_pub_pivot_error_ = node_handle.createTimer(ros::Duration(0.1),
-                                                     &PivotController::publishPivotErrorAndDesired, this);
-    std::string arm_id;
-    if (!node_handle.getParam("arm_id", arm_id)) {
-      ROS_ERROR_STREAM("PivotController: Could not read parameter arm_id");
-      return false;
-    }
-    std::vector<std::string> joint_names;
-    if (!node_handle.getParam("joint_names", joint_names) || joint_names.size() != 7) {
-      ROS_ERROR(
-          "PivotController: Invalid or no joint_names parameters provided, "
-          "aborting controller init!");
-      return false;
-    }
     std::vector<double> ee_t_tt_trans;
     std::vector<double> ee_t_tt_orientation;
     // Position:xyz and Orientation:xyzw
@@ -155,29 +125,70 @@ namespace frankpiv_controller {
           "aborting controller init!");
       return false;
     }
-    ROS_INFO_STREAM_NAMED("PivotController", "NE_T_Tip" << NE_T_Tip);
     franka_msgs::SetEEFrameRequest request;
     franka_msgs::SetEEFrameResponse response;
-    // Hack around because I don't know where to place remap-tag in launch file
-    std::string service_prefix;
-    if (operation_type == "simulation") {
-        service_prefix = "/";
-    }
-    if (operation_type == "robot") {
-        service_prefix = "/franka_control/";
-    }
-    // Call service to set EE
-    ros::ServiceClient set_EE_frame_client =
-    node_handle.serviceClient<franka_msgs::SetEEFrame>(service_prefix + "set_EE_frame");
-    // kinda didn't found a better solution..
     for (int i = 0; i < 16; i++) {
       request.NE_T_EE[i] = NE_T_Tip.data()[i];
     }
-    set_EE_frame_client.call(request, response);
-
-    if(!response.success) {
+    // Hack around because I don't know where to place remap-tag in launch file
+    std::string service_prefix;
+    if (operation_type == "simulation") {
+      service_prefix = "/";
+    }
+    if (operation_type == "robot") {
+      service_prefix = "/franka_control/";
+    }
+    // Call service to set EE
+    ros::ServiceClient set_EE_frame_client =
+        node_handle.serviceClient<franka_msgs::SetEEFrame>(service_prefix + "set_EE_frame");
+    // kinda didn't found a better solution..
+    ROS_INFO_STREAM_NAMED("PivotController", "wait for service to become available " << service_prefix + "set_EE_frame" << " available" );
+    if(set_EE_frame_client.waitForExistence()) {
+      ROS_INFO_STREAM_NAMED("PivotController", "Service " << service_prefix + "set_EE_frame" << " available" );
+      set_EE_frame_client.call(request, response);
+      if(response.success) {
+        ROS_INFO_STREAM_NAMED("PivotController",
+                              "Successfully set end effector transform");
+      } else {
+        ROS_ERROR_STREAM_NAMED(
+            "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << response.error);
+        return false;
+      }
+    }
+    else {
       ROS_ERROR_STREAM_NAMED(
-          "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << response.error);
+          "PivotController", "set_EE_frame service is not available!");
+      return false;
+    }
+
+    std::vector<double> cartesian_stiffness_vector;
+    std::vector<double> cartesian_damping_vector;
+
+    tip_pose_queue_ = {};
+    sub_pivot_trajectory_ = node_handle.subscribe(
+        "pivot_trajectory", 20, &PivotController::toolTipPivotControlCallback, this,
+        ros::TransportHints().reliable().tcpNoDelay());
+    //TODO: rather use /tf
+    sub_pivot_point_pose_ = node_handle.subscribe(
+        "pivot_position", 20, &PivotController::pivotPositionCallback, this,
+        ros::TransportHints().reliable().tcpNoDelay());
+    pub_pivot_error_ = node_handle.advertise<std_msgs::Float64>("pivot_error", 1000);
+    pub_tip_pose_error_trans_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_trans", 1000);
+    pub_tip_pose_error_roll_ = node_handle.advertise<std_msgs::Float64>("tip_pose_error_roll", 1000);
+    pub_tip_pose_d_ = node_handle.advertise<geometry_msgs::PoseStamped>("desired/tip_pose_d", 1000);
+    pub_pivot_point_d_ = node_handle.advertise<geometry_msgs::PointStamped>("desired/pivot_point", 1000);
+    timer_pub_pivot_error_ = node_handle.createTimer(ros::Duration(0.1),
+                                                     &PivotController::publishPivotErrorAndDesired, this);
+    std::string arm_id;
+    if (!node_handle.getParam("arm_id", arm_id)) {
+      ROS_ERROR_STREAM("PivotController: Could not read parameter arm_id");
+      return false;
+    }
+    std::vector<std::string> joint_names;
+    if (!node_handle.getParam("joint_names", joint_names) || joint_names.size() != 7) {
+      ROS_ERROR(
+          "PivotController: Invalid or no joint_names parameters provided, "
+          "aborting controller init!");
       return false;
     }
 
