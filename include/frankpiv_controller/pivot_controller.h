@@ -77,6 +77,8 @@ namespace frankpiv_controller {
     const double pivot_error_max_{0.005};
     // threshold in m
     const double target_error_tolerance_{10e-4};
+    typedef  enum {ROBOT, SIMULATION} operation_type_t;
+    operation_type_t operation_type_ {ROBOT};
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_;
     Eigen::Matrix<double, 6, 6> cartesian_stiffness_target_;
     Eigen::Matrix<double, 6, 6> cartesian_damping_;

@@ -85,12 +85,23 @@ namespace frankpiv_controller {
           "PivotController: operation type not given");
       return false;
     }
+    if (operation_type == "simulation") {
+      operation_type_ = SIMULATION;
+    }
+    else if (operation_type == "robot") {
+      operation_type_ = ROBOT;
+    }
+    else {
+      ROS_ERROR_STREAM_NAMED(
+          "PivotController", "Operation type " << operation_type << " not known either [robot] or [simulation]");
+      return false;
+    }
     // Hack around because I don't know where to place remap-tag in launch file
     std::string service_prefix;
-    if (operation_type == "simulation") {
+    if (operation_type_ == SIMULATION) {
       service_prefix = "/";
     }
-    if (operation_type == "robot") {
+    if (operation_type_ == ROBOT) {
       service_prefix = "/franka_control/";
     }
 
