@@ -19,12 +19,12 @@
     <arg name="initial_joint_positions"
          doc="Initial joint configuration of the panda. Specify as a list of name/value pairs in form of '-J [name-of-joint] [value-in-rad]'. Default is a 90 degree bend in the elbow"
          default="-J $(arg arm_id)_joint1 0
-                -J $(arg arm_id)_joint2 -1.0
+                -J $(arg arm_id)_joint2 -1.015386
                 -J $(arg arm_id)_joint3 0
-                -J $(arg arm_id)_joint4 -2.35619449019
+                -J $(arg arm_id)_joint4 -2.274039
                 -J $(arg arm_id)_joint5 0
-                -J $(arg arm_id)_joint6 1.57079632679
-                -J $(arg arm_id)_joint7 0
+                -J $(arg arm_id)_joint6 2.004453
+                -J $(arg arm_id)_joint7 1.652467
                 -J $(arg arm_id)_finger_joint1 0.001
                 -J $(arg arm_id)_finger_joint2 0.001"/>
 
