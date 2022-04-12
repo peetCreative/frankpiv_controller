@@ -21,7 +21,7 @@ pivot_position = Pose()
 tip_pose_pub = None
 pivot_position_pub = None
 # [[min_x, max_x], [min_y, max_y], [min_z, max_z]]
-position_limits = [[-0.6, 0.6], [-0.6, 0.6], [0.05, 0.9]]
+position_limits = [[0.1, 1.0], [-0.6, 0.6], [0.05, 0.9]]
 generate_movements = False
 
 
