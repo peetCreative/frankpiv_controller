@@ -150,7 +150,7 @@ Visualization Manager:
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
       Shape: Axes
-      Topic: /pivot_controller/desired/tip_pose_d
+      Topic: /laparoscope_controller/desired/tip_pose_d
       Unreliable: false
       Value: true
     - Alpha: 1
