@@ -103,6 +103,10 @@ namespace frankpiv_controller {
       return false;
     }
     requestSetLoad.mass = mass;
+    //TODO: remove if we find solution in the problem simulation vs real robot
+    if(operation_type != "robot") {
+      requestSetLoad.mass = 0.0;
+    }
 
     std::vector<double> F_x_center_load;
     if (!node_handle.getParam("F_x_center_load", F_x_center_load) ||
