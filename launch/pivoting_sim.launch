@@ -47,7 +47,7 @@
           type="spawner"
           name="$(arg arm_id)_controller_spawner"
           respawn="false" output="screen"
-          args="franka_state_controller pivot_controller"
+          args="franka_state_controller laparoscope_controller"
     />
 
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
@@ -68,8 +68,8 @@
           unless="$(arg disable_gui)"
     >
         <param name="link_name" value="$(arg arm_id)_link0" />
-        <remap to="pivot_controller/pivot_trajectory" from="pivot_trajectory" />
-        <remap to="pivot_controller/pivot_position" from="pivot_position" />
+        <remap to="laparoscope_controller/pivot_trajectory" from="pivot_trajectory" />
+        <remap to="laparoscope_controller/pivot_position" from="pivot_position" />
     </node>
 <!--    pivot_controller/tip_pose_error_trans-->
     <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure"
@@ -79,7 +79,7 @@
            args="-d $(find frankpiv_controller)/launch/rviz/franka_description_with_marker.rviz"
            unless="$(arg disable_gui)"/>
     <node name="error_plot" pkg="rqt_plot"  output="screen" type="rqt_plot"
-          args="/pivot_controller/pivot_error/data /pivot_controller/tip_pose_error_trans/data"
+          args="/laparoscope_controller/pivot_error/data /laparoscope_controller/tip_pose_error_trans/data"
           launch-prefix="bash -c 'sleep $(arg plot_start_delay); $0 $@' "
           unless="$(arg disable_gui)"/>
 </launch>

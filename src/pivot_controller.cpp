@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <franka_msgs/SetEEFrame.h>
+#include <franka_msgs/SetLoad.h>
 #include <controller_interface/controller_base.h>
 #include <franka/robot_state.h>
 #include <pluginlib/class_list_macros.h>
@@ -78,8 +79,75 @@ namespace frankpiv_controller {
 
   bool PivotController::init(hardware_interface::RobotHW* robot_hw,
                                                  ros::NodeHandle& node_handle) {
+    std::string operation_type;
+    if (!node_handle.getParam("/operation_type", operation_type)) {
+      ROS_ERROR(
+          "PivotController: operation type not given");
+      return false;
+    }
+    // Hack around because I don't know where to place remap-tag in launch file
+    std::string service_prefix;
+    if (operation_type == "simulation") {
+      service_prefix = "/";
+    }
+    if (operation_type == "robot") {
+      service_prefix = "/franka_control/";
+    }
+
+    franka_msgs::SetLoadRequest requestSetLoad;
+    franka_msgs::SetLoadResponse responseSetLoad;
+
+    double mass;
+    if (!node_handle.getParam("mass", mass)) {
+      ROS_ERROR_NAMED("PivotController", "No mass for mounted tool given as param!");
+      return false;
+    }
+    requestSetLoad.mass = mass;
+
+    std::vector<double> F_x_center_load;
+    if (!node_handle.getParam("F_x_center_load", F_x_center_load) ||
+        F_x_center_load.size() != 3) {
+      ROS_ERROR_NAMED("PivotController", "No Vector (3D) from flange to center of mass given as param!");
+      return false;
+    }
+    std::copy_n(F_x_center_load.begin(), 3, requestSetLoad.F_x_center_load.begin());
+
+    std::vector<double> load_inertia;
+    if (!node_handle.getParam("load_inertia", load_inertia) ||
+        load_inertia.size() != 9) {
+      ROS_ERROR_NAMED("PivotController", "No distance from flange to center of mass given as param!");
+      return false;
+    }
+    std::copy_n(load_inertia.begin(), 9, requestSetLoad.load_inertia.begin());
+
+    std::string set_load_desc = "set Load (Mass, Inertia, gravity center)";
+    // Call service
+    std::string set_load_service_url = service_prefix + "set_load";
+    ros::ServiceClient set_load_client =
+        node_handle.serviceClient<franka_msgs::SetLoad>(set_load_service_url);
+    // kinda didn't found a better solution..
+    ROS_INFO_STREAM_NAMED("PivotController", "waitForService: Service [" << set_load_service_url << "] has not been advertised, waiting... ");
+    if(set_load_client.waitForExistence()) {
+      ROS_INFO_STREAM_NAMED("PivotController", "Service [" << set_load_service_url << "] available" );
+      set_load_client.call(requestSetLoad, responseSetLoad);
+      if(responseSetLoad.success) {
+        ROS_INFO_STREAM_NAMED("PivotController",
+                              "Successfully ");
+      } else {
+        ROS_ERROR_STREAM_NAMED(
+            "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << responseSetLoad.error);
+        return false;
+      }
+    }
+    else {
+      ROS_ERROR_STREAM_NAMED(
+          "PivotController", "set_Load service is not available!");
+      return false;
+    }
+
+    franka_msgs::SetEEFrameRequest requestSetEEFrame;
+    franka_msgs::SetEEFrameResponse responseSetEEFrame;
     std::vector<double> ee_t_tt_trans;
-    std::vector<double> ee_t_tt_orientation;
     // Position:xyz and Orientation:xyzw
     if (!node_handle.getParam("ee_t_tt_translation", ee_t_tt_trans) ||
       ee_t_tt_trans.size() != 3) {
@@ -88,25 +156,13 @@ namespace frankpiv_controller {
           "aborting controller init!");
       return false;
     }
+
+    std::vector<double> ee_t_tt_orientation;
     if (!node_handle.getParam("ee_t_tt_orientation", ee_t_tt_orientation)) {
       ROS_ERROR(
           "PivotController: No transform from flange to tooltip, "
           "aborting controller init!");
       return false;
-    }
-    double insertion_depth;
-    if (!node_handle.getParam("insertion_depth", insertion_depth)) {
-      ROS_WARN(
-          "PivotController: No insertion depth, mind publishing pivot_position!");
-    }
-    else {
-      insertion_depth_ = {insertion_depth};
-    }
-    std::string operation_type;
-    if (!node_handle.getParam("/operation_type", operation_type)) {
-        ROS_ERROR(
-            "PivotController: operation type not given");
-        return false;
     }
     Eigen::Matrix4d NE_T_Tip;
     NE_T_Tip.setIdentity();
@@ -125,33 +181,32 @@ namespace frankpiv_controller {
           "aborting controller init!");
       return false;
     }
-    franka_msgs::SetEEFrameRequest request;
-    franka_msgs::SetEEFrameResponse response;
-    for (int i = 0; i < 16; i++) {
-      request.NE_T_EE[i] = NE_T_Tip.data()[i];
+
+//    Eigen::Matrix4d NE_T_Tip_transp = NE_T_Tip.transpose();
+    std::copy_n(NE_T_Tip.data(), 16, requestSetEEFrame.NE_T_EE.begin());
+    std::stringstream ss;
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+        ss << requestSetEEFrame.NE_T_EE[(4*i)+j] << ", ";
+      }
+      ss << std::endl;
     }
-    // Hack around because I don't know where to place remap-tag in launch file
-    std::string service_prefix;
-    if (operation_type == "simulation") {
-      service_prefix = "/";
-    }
-    if (operation_type == "robot") {
-      service_prefix = "/franka_control/";
-    }
-    // Call service to set EE
+    ROS_INFO_STREAM_NAMED("PivotController",  "NE_T_EE" << std::endl << ss.str());
+    std::string set_EE_frame_service_url = service_prefix + "set_EE_frame";
+    // Call service to set EE frame
     ros::ServiceClient set_EE_frame_client =
-        node_handle.serviceClient<franka_msgs::SetEEFrame>(service_prefix + "set_EE_frame");
+        node_handle.serviceClient<franka_msgs::SetEEFrame>(set_EE_frame_service_url);
     // kinda didn't found a better solution..
-    ROS_INFO_STREAM_NAMED("PivotController", "wait for service to become available " << service_prefix + "set_EE_frame" << " available" );
+    ROS_INFO_STREAM_NAMED("PivotController", "waitForService: Service [" << set_EE_frame_service_url << "] has not been advertised, waiting... ");
     if(set_EE_frame_client.waitForExistence()) {
-      ROS_INFO_STREAM_NAMED("PivotController", "Service " << service_prefix + "set_EE_frame" << " available" );
-      set_EE_frame_client.call(request, response);
-      if(response.success) {
+      ROS_INFO_STREAM_NAMED("PivotController", "Service [" << set_EE_frame_service_url << "] available" );
+      set_EE_frame_client.call(requestSetEEFrame, responseSetEEFrame);
+      if(responseSetEEFrame.success) {
         ROS_INFO_STREAM_NAMED("PivotController",
                               "Successfully set end effector transform");
       } else {
         ROS_ERROR_STREAM_NAMED(
-            "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << response.error);
+            "PivotController", "Could not set the Frame from Endeffector (Flange) to Tooltip, " << responseSetEEFrame.error);
         return false;
       }
     }
@@ -159,6 +214,15 @@ namespace frankpiv_controller {
       ROS_ERROR_STREAM_NAMED(
           "PivotController", "set_EE_frame service is not available!");
       return false;
+    }
+
+    double insertion_depth;
+    if (!node_handle.getParam("insertion_depth", insertion_depth)) {
+      ROS_WARN(
+          "PivotController: No insertion depth, mind publishing pivot_position!");
+    }
+    else {
+      insertion_depth_ = {insertion_depth};
     }
 
     std::vector<double> cartesian_stiffness_vector;
@@ -256,22 +320,13 @@ namespace frankpiv_controller {
       auto state_handle = state_interface->getHandle(arm_id + "_robot");
 
       //TODO: need to be loaded after the simulation is finished
-      std::array<double, 7> q_start{{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
       franka::RobotState state = state_handle.getRobotState();
-      for (size_t i = 0; i < q_start.size(); i++) {
-        ROS_INFO_STREAM_NAMED("CartesianPoseExampleController",
+      for (size_t i = 0; i < state.q.size(); i++) {
+        ROS_INFO_STREAM_NAMED("PivotController",
                               " q_d " << state.q_d[i] <<
                                       " q " << state.q[i]
         );
-        double diff = state.q_d[i] - q_start[i];
-        ROS_INFO_STREAM_NAMED("CartesianPoseExampleController", "Diff" << i << " " << diff);
-        if (std::abs(diff) > 0.1) {
-          ROS_WARN_STREAM(
-              "CartesianPoseExampleController: Robot is not in the expected starting position for "
-              "running this example. Run `roslaunch franka_example_controllers move_to_start.launch "
-              "robot_ip:=<robot-ip> load_gripper:=<has-attached-gripper>` first.");
-//        return false;
-        }
+
       }
     } catch (const hardware_interface::HardwareInterfaceException& e) {
       ROS_ERROR_STREAM(

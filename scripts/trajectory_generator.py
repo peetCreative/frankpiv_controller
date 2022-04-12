@@ -98,7 +98,7 @@ def wait_for_initial_pose():
 
     insertion_depth = 0
     # rospy.logerr(rospy.get_param_names())
-    param_name = "/pivot_controller/insertion_depth"
+    param_name = "/laparoscope_controller/insertion_depth"
     if rospy.has_param(param_name):
         insertion_depth = rospy.get_param(param_name)
         rospy.loginfo(f"insertion_depth: {insertion_depth}")
