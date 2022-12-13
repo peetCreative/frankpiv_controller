@@ -80,7 +80,7 @@ namespace frankpiv_controller {
   bool PivotController::init(hardware_interface::RobotHW* robot_hw,
                                                  ros::NodeHandle& node_handle) {
     std::string operation_type;
-    if (!node_handle.getParam("/operation_type", operation_type)) {
+    if (!node_handle.getParam("operation_type", operation_type)) {
       ROS_ERROR(
           "PivotController: operation type not given");
       return false;
@@ -115,7 +115,7 @@ namespace frankpiv_controller {
     }
     requestSetLoad.mass = mass;
     //TODO: remove if we find solution in the problem simulation vs real robot
-    if(operation_type != "robot") {
+    if(operation_type_ == SIMULATION) {
       requestSetLoad.mass = 0.0;
     }
 
