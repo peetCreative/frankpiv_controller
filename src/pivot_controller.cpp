@@ -79,31 +79,7 @@ namespace frankpiv_controller {
 
   bool PivotController::init(hardware_interface::RobotHW* robot_hw,
                                                  ros::NodeHandle& node_handle) {
-    std::string operation_type;
-    if (!node_handle.getParam("operation_type", operation_type)) {
-      ROS_ERROR(
-          "PivotController: operation type not given");
-      return false;
-    }
-    if (operation_type == "simulation") {
-      operation_type_ = SIMULATION;
-    }
-    else if (operation_type == "robot") {
-      operation_type_ = ROBOT;
-    }
-    else {
-      ROS_ERROR_STREAM_NAMED(
-          "PivotController", "Operation type " << operation_type << " not known either [robot] or [simulation]");
-      return false;
-    }
-    // Hack around because I don't know where to place remap-tag in launch file
-    std::string service_prefix;
-    if (operation_type_ == SIMULATION) {
-      service_prefix = "/";
-    }
-    if (operation_type_ == ROBOT) {
-      service_prefix = "/franka_control/";
-    }
+    std::string service_prefix = "/franka_control/";
 
     franka_msgs::SetLoadRequest requestSetLoad;
     franka_msgs::SetLoadResponse responseSetLoad;
@@ -114,11 +90,6 @@ namespace frankpiv_controller {
       return false;
     }
     requestSetLoad.mass = mass;
-    //TODO: remove if we find solution in the problem simulation vs real robot
-    if(operation_type_ == SIMULATION) {
-      requestSetLoad.mass = 0.0;
-    }
-
     std::vector<double> F_x_center_load;
     if (!node_handle.getParam("F_x_center_load", F_x_center_load) ||
         F_x_center_load.size() != 3) {

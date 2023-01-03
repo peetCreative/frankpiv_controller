@@ -1,11 +1,10 @@
 laparoscope_controller:
   type: frankpiv_controller/PivotController
   arm_id: $(arg arm_id)
-  operation_type: $(arg operation_type)
   #TODO: tools no longer than 0.5 allowed for real robot
   ee_t_tt_translation: [ 0, 0, 0.5 ]
   ee_t_tt_orientation: [ 0, 0, 3.14159265359 ]
-  mass: 1.0
+  mass: $(arg mass)
 #  mass: 0.0
   F_x_center_load: [0, 0, 0.135]
   load_inertia: [

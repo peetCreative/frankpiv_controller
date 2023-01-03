@@ -15,7 +15,7 @@
     <arg name="interactive" default="false" />
     <arg name="interactive_arg" value="$(eval '' if arg('interactive') else '--no-interactive')"/>
     <arg name="arm_id"      default="panda" doc="Name of the panda robot to spawn" />
-
+    <arg name="mass"        default="$(eval 1.0 if arg('run_robot') else 0.0)"/>
     <arg name="machine_name" value="$(eval 'REMOTE' if arg('run_remote') else '')"/>
     <arg name="remote_address" default=""/>
     <arg name="remote_user" default=""/>
@@ -32,6 +32,7 @@
     <node name="rqt_console" pkg="rqt_console" type="rqt_console" unless="$(arg disable_gui)" />
 
     <include file="$(find frankpiv_controller)/launch/simulation.launch" if="$(arg run_simulation)">
+        <!-- <arg name="paused" value="true"/> -->
         <arg name="machine_name" value="$(arg machine_name)"/>
         <arg name="headless" value="$(eval arg('disable_gui') or arg('disable_gazebo_gui'))"/>
     </include>
@@ -42,12 +43,11 @@
     </include>
 
     <rosparam file="$(find frankpiv_controller)/cfg/controller.yaml" subst_value="true" />
-    <param name="operation_type" value="$(arg operation_type)" type="str"/>
     <node pkg="controller_manager"
           type="spawner"
           name="$(arg arm_id)_controller_spawner"
           respawn="false" output="screen"
-          args="franka_state_controller laparoscope_controller"
+          args="--wait-for initialized franka_state_controller laparoscope_controller"
     />
 
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
@@ -55,6 +55,7 @@
         <rosparam param="source_list">[franka_state_controller/joint_states] </rosparam>
         <param name="rate" value="30"/>
     </node>
+    <!--May not be needed-->
     <node name="joint_state_desired_publisher" type="joint_state_publisher" pkg="joint_state_publisher">
         <rosparam param="source_list">[franka_state_controller/joint_states_desired] </rosparam>
         <param name="rate" value="30"/>
