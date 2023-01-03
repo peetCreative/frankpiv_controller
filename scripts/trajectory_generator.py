@@ -234,4 +234,4 @@ if __name__ == "__main__":
     if not args.no_interactive or args.generate_movements:
         rospy.spin()
     else:
-        rospy.logwarn("No interactive and not generate movements, quit")
+        rospy.signal_shutdown("No interactive and not generate movements, quit")
