@@ -35,7 +35,6 @@ def publisher_callback(msg):
     #     rospy.logerr("detected rotaion around x and y axis, roll is wrong")
     # pivot_pose.roll = asin(marker_pose.orientation.z) * 2
     pivot_pose.roll = 0
-    rospy.loginfo_throttle(1.0, f"generate_movements:{args.generate_movements}")
     if args.generate_movements:
         time = rospy.get_rostime() - start_time
         pivot_pose.y = tip_pose.position.y + 0.05 * sin(0.5*time.to_sec())
